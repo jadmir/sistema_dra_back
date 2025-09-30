@@ -62,7 +62,8 @@ Sigue estos pasos para correr el proyecto en una nueva máquina:
 6. **Ejecutar migraciones y seeders**
 
    ```bash
-   php artisan migrate --seed
+   php artisan migrate --seed  o
+   php artisan db:seed --class=RolesPermisosSeeder
    ```
 
 7. **Levantar el servidor**
