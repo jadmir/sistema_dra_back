@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-use Exception;
 
 class JwtMiddleware
 {
@@ -14,22 +13,42 @@ class JwtMiddleware
     {
         $jwtKey = env('JWT_SECRET');
 
-        try {
-            $authHeader = $request->header('Authorization');
-            if(!$authHeader) {
-                return response()->json(['error' => 'Token no proporcionado'], 401);
-            }
+        $authHeader = $request->header('Authorization');
+        if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+            return response()->json(['error' => 'Token no proporcionado'], 401);
+        }
 
-            $token = str_replace('Bearer ', '', $authHeader);
+        try {
+            $token = substr($authHeader, 7);
             $decoded = JWT::decode($token, new Key($jwtKey, 'HS256'));
 
-            //Compartir el user_id con las respuestas
-            $request->attributes->add(['user_id' => $decoded->sub]);
+            // Asegura que sea un access token
+            if (($decoded->type ?? 'access') !== 'access') {
+                return response()->json(['error' => 'Token inválido (no es access)'], 401);
+            }
 
-        } catch (\Exception $e) {
+            // Carga usuario
+            $user = \App\Models\Usuario::find($decoded->sub ?? null);
+            if (!$user) {
+                return response()->json(['error' => 'Usuario no encontrado'], 401);
+            }
+
+            // Inyecta user resolver (para $request->user())
+            $request->setUserResolver(function () use ($user) {
+                return $user;
+            });
+
+            // Guarda claims útiles
+            $request->attributes->set('jwt_user_id', $decoded->sub ?? null);
+            $request->attributes->set('jwt_role_id', $decoded->rol ?? null);
+
+            // Fuerza JSON (evita redirects a /login)
+            $request->headers->set('Accept', 'application/json');
+
+        } catch (\Throwable $e) {
             return response()->json([
-                'error' => 'Token inválido o experido',
-                'detalle' => $e->getMessage()
+                'error' => 'Token inválido o expirado',
+                'detalle' => $e->getMessage(),
             ], 401);
         }
 
