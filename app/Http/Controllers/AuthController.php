@@ -19,8 +19,8 @@ class AuthController extends Controller
     public function __construct()
     {
         $this->jwtKey = env('JWT_SECRET');
-        $this->ttl = env('JWT_TTL', 7200); // 2 horas
-        $this->refreshTtl = env('JWT_REFRESH_TTL', 604800); // 7 días
+        $this->ttl = (int) env('JWT_TTL', 7200); // 2 horas
+        $this->refreshTtl = (int) env('JWT_REFRESH_TTL', 604800); // 7 días
     }
 
     private function generateToken($userId, $rolId, $isRefresh = false)

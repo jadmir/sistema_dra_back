@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PermisoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\AgriSacaClaseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -54,4 +55,13 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
 
     // Permisos
     Route::apiResource('permisos', PermisoController::class);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('saca_clases/search', [AgriSacaClaseController::class, 'search']);
+    Route::get('saca_clases', [AgriSacaClaseController::class, 'index']);
+    Route::post('saca_clases', [AgriSacaClaseController::class, 'store']);
+    Route::get('saca_clases/{id}', [AgriSacaClaseController::class, 'show']);
+    Route::put('saca_clases/{id}', [AgriSacaClaseController::class, 'update']);
+    Route::delete('saca_clases/{id}', [AgriSacaClaseController::class, 'destroy']);
 });

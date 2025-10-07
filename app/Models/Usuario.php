@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class Usuario extends Model
+
+class Usuario extends Authenticatable implements JWTSubject
 {
     use HasFactory;
 
@@ -95,5 +97,16 @@ class Usuario extends Model
     public function tienePermiso(string $permisoNombre): bool
     {
         return $this->rol && $this->rol->tienePermiso($permisoNombre);
+    }
+
+    // Métodos requeridos por JWTSubject
+     public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [];
     }
 }
