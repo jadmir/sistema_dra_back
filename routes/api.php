@@ -5,6 +5,9 @@ use App\Http\Controllers\PermisoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\AgriSacaClaseController;
+use App\Http\Controllers\AgriAnimalController;
+use App\Http\Controllers\AgriNatalidadMortalidadController;
+use App\Http\Controllers\AgriVariedadController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -65,3 +68,35 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::put('saca_clases/{id}', [AgriSacaClaseController::class, 'update']);
     Route::delete('saca_clases/{id}', [AgriSacaClaseController::class, 'destroy']);
 });
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('variedades/search', [AgriVariedadController::class, 'search']);
+    Route::get('variedades', [AgriVariedadController::class, 'index']);
+    Route::post('variedades', [AgriVariedadController::class, 'store']);
+    Route::get('variedades/{id}', [AgriVariedadController::class, 'show']);
+    Route::put('variedades/{id}', [AgriVariedadController::class, 'update']);
+    Route::delete('variedades/{id}', [AgriVariedadController::class, 'destroy']);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('agri_animales/search', [AgriAnimalController::class, 'search']);
+    Route::get('agri_animales', [AgriAnimalController::class, 'index']);
+    Route::post('agri_animales', [AgriAnimalController::class, 'store']);
+    Route::get('agri_animales/{id}', [AgriAnimalController::class, 'show']);
+    Route::put('agri_animales/{id}', [AgriAnimalController::class, 'update']);
+    Route::delete('agri_animales/{id}', [AgriAnimalController::class, 'destroy']);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('natalidad-mortalidad/search', [AgriNatalidadMortalidadController::class, 'search']);
+    Route::get('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'index']);
+    Route::post('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'store']);
+    Route::get('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'show']);
+    Route::put('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'update']);
+    Route::delete('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'destroy']);
+});
+
+
+
+
+
