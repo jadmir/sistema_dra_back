@@ -4,10 +4,8 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Tymon\JWTAuth\Contracts\JWTSubject;
 
-
-class Usuario extends Authenticatable implements JWTSubject
+class Usuario extends Authenticatable
 {
     use HasFactory;
 
@@ -30,7 +28,7 @@ class Usuario extends Authenticatable implements JWTSubject
     ];
 
     protected $casts = [
-        'activo' => 'boolean', // corregido
+        'activo' => 'boolean',
     ];
 
     public function rol()
@@ -50,7 +48,7 @@ class Usuario extends Authenticatable implements JWTSubject
     {
         if (!$q) return $query;
         $q = trim($q);
-        return $query->where(function($w) use ($q) {
+        return $query->where(function ($w) use ($q) {
             $like = "%{$q}%";
             $w->where('email', 'LIKE', $like)
               ->orWhere('dni', 'LIKE', $like)
@@ -84,29 +82,18 @@ class Usuario extends Authenticatable implements JWTSubject
 
     public function scopeSortBy($query, ?string $column, ?string $dir)
     {
-        $allowed = ['id','nombre','apellido','email','dni','rol_id','activo','created_at'];
+        $allowed = ['id', 'nombre', 'apellido', 'email', 'dni', 'rol_id', 'activo', 'created_at'];
         $dir = strtolower($dir ?? 'asc');
-        if (!in_array($dir, ['asc','desc'])) $dir = 'asc';
+        if (!in_array($dir, ['asc', 'desc'])) $dir = 'asc';
         if (in_array($column, $allowed)) {
             return $query->orderBy($column, $dir);
         }
         return $query->orderBy('id', 'asc');
     }
 
-    //verifica si el usuario tiene un permiso especifico
+    // Verifica si el usuario tiene un permiso específico
     public function tienePermiso(string $permisoNombre): bool
     {
         return $this->rol && $this->rol->tienePermiso($permisoNombre);
-    }
-
-    // Métodos requeridos por JWTSubject
-     public function getJWTIdentifier()
-    {
-        return $this->getKey();
-    }
-
-    public function getJWTCustomClaims()
-    {
-        return [];
     }
 }
