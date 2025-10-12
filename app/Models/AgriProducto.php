@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-class AgriSacaClase extends Model
-{
-    use HasFactory;
 
-    protected $table = 'agri_saca_clases';
+class AgriProducto extends Model
+{
+     use HasFactory;
+
+    protected $table = 'agri_productos';
 
     protected $fillable = [
         'nombre',
@@ -18,14 +19,20 @@ class AgriSacaClase extends Model
     ];
 
     protected $casts = [
+        'estado' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
-    // Relación con usuario
+    // Usuario que creó el producto
     public function usuario()
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 
+    // Variedades relacionadas
+    public function variedades()
+    {
+        return $this->hasMany(AgriVariedad::class, 'producto_id');
+    }
 }

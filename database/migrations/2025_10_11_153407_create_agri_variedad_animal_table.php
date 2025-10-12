@@ -11,13 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('agri_variedads', function (Blueprint $table) {
+        Schema::create('agri_variedad_animal', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('producto_id')->nullable()->constrained('agri_productos')->nullOnDelete()->onUpdate('cascade');
             $table->string('nombre', 150);
             $table->text('descripcion')->nullable();
-            $table->boolean('estado')->default(true); 
-            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete()->onUpdate('cascade');
+            $table->boolean('estado')->default(true);
             $table->timestamps();
         });
     }
@@ -27,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('agri_variedads');
+        Schema::dropIfExists('agri_variedad_animal');
     }
 };

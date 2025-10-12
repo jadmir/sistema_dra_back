@@ -4,28 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-class AgriSacaClase extends Model
+
+class AgriVariedadAnimal extends Model
 {
     use HasFactory;
 
-    protected $table = 'agri_saca_clases';
+    protected $table = 'agri_variedad_animal';
 
     protected $fillable = [
         'nombre',
         'descripcion',
         'estado',
-        'usuario_id'
     ];
 
     protected $casts = [
+        'estado' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-
-    // Relación con usuario
-    public function usuario()
-    {
-        return $this->belongsTo(Usuario::class, 'usuario_id');
-    }
-
 }

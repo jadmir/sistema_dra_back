@@ -4,22 +4,35 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AgriVariedad extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'agri_variedads';
 
     protected $fillable = [
-        'nombre', 'descripcion', 'estado'
+        'producto_id',
+        'usuario_id',
+        'nombre',
+        'descripcion',
+        'estado'
     ];
 
-    protected $dates = ['deleted_at','created_at','updated_at'];
+    protected $casts = [
+        'estado' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 
-    // Relación con animales
-    public function animales() {
-        return $this->hasMany(\App\Models\AgriAnimal::class,'variedad_id');
+     public function producto()
+    {
+        return $this->belongsTo(AgriProducto::class, 'producto_id');
     }
+
+        public function usuario()
+    {
+        return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
+
 }

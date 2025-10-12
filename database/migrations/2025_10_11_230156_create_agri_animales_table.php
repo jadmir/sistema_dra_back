@@ -14,13 +14,12 @@ return new class extends Migration
         Schema::create('agri_animales', function (Blueprint $table) {
             $table->id();
             $table->string('codigo', 50);
-            $table->foreignId('variedad_id')->constrained('agri_variedads')->onDelete('cascade');
-            $table->integer('edad');
-            $table->decimal('peso', 10, 2);
-            $table->string('estado', 10)->default('activo');
-            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->onDelete('set null');
+            $table->foreignId('variedad_id')->nullable()->constrained('agri_variedad_animal')->nullOnDelete();
+            $table->integer('edad')->nullable();
+            $table->decimal('peso', 10, 2)->nullable();
+            $table->boolean('estado')->default(true);
+            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

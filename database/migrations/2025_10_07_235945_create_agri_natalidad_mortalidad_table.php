@@ -13,19 +13,12 @@ return new class extends Migration
     {
         Schema::create('agri_natalidad_mortalidad', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('animal_id');
             $table->string('tipo', 20);
             $table->string('concepto', 100);
-            $table->date('fecha');
             $table->text('observaciones')->nullable();
-            $table->unsignedBigInteger('usuario_id')->nullable();
+            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete();
             $table->boolean('estado')->default(true);
             $table->timestamps();
-            $table->softDeletes();
-
-            // Relaciones
-            $table->foreign('animal_id')->references('id')->on('agri_animales')->onDelete('cascade');
-            $table->foreign('usuario_id')->references('id')->on('usuarios')->onDelete('set null');
         });
     }
 

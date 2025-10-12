@@ -9,6 +9,8 @@ use App\Http\Controllers\AgriAnimalController;
 use App\Http\Controllers\AgriDestinoController;
 use App\Http\Controllers\AgriNatalidadMortalidadController;
 use App\Http\Controllers\AgriVariedadController;
+use App\Http\Controllers\AgriProductoController;
+use App\Http\Controllers\AgriVariedadAnimalController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -61,40 +63,40 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::apiResource('permisos', PermisoController::class);
 });
 
+// agri_saca_clases
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
-    Route::get('saca_clases/search', [AgriSacaClaseController::class, 'search']);
-    Route::get('saca_clases', [AgriSacaClaseController::class, 'index']);
-    Route::post('saca_clases', [AgriSacaClaseController::class, 'store']);
-    Route::get('saca_clases/{id}', [AgriSacaClaseController::class, 'show']);
-    Route::put('saca_clases/{id}', [AgriSacaClaseController::class, 'update']);
-    Route::delete('saca_clases/{id}', [AgriSacaClaseController::class, 'destroy']);
+    Route::get('agri-saca-clases/search', [AgriSacaClaseController::class, 'search']);
+    Route::apiResource('agri-saca-clases', AgriSacaClaseController::class);
 });
 
+// agri_variedades
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
-    Route::get('variedades/search', [AgriVariedadController::class, 'search']);
-    Route::get('variedades', [AgriVariedadController::class, 'index']);
-    Route::post('variedades', [AgriVariedadController::class, 'store']);
-    Route::get('variedades/{id}', [AgriVariedadController::class, 'show']);
-    Route::put('variedades/{id}', [AgriVariedadController::class, 'update']);
-    Route::delete('variedades/{id}', [AgriVariedadController::class, 'destroy']);
+    Route::get('agri-variedades/search', [AgriVariedadController::class, 'search']);
+    Route::apiResource('agri-variedades', AgriVariedadController::class);
 });
 
+// agri_productos
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
-    Route::get('agri_animales/search', [AgriAnimalController::class, 'search']);
-    Route::get('agri_animales', [AgriAnimalController::class, 'index']);
-    Route::post('agri_animales', [AgriAnimalController::class, 'store']);
-    Route::get('agri_animales/{id}', [AgriAnimalController::class, 'show']);
-    Route::put('agri_animales/{id}', [AgriAnimalController::class, 'update']);
-    Route::delete('agri_animales/{id}', [AgriAnimalController::class, 'destroy']);
+    Route::get('agri-productos/search', [AgriProductoController::class, 'search']);
+    Route::apiResource('agri-productos', AgriProductoController::class);
 });
 
+//agri_variedad_animal
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
-    Route::get('natalidad-mortalidad/search', [AgriNatalidadMortalidadController::class, 'search']);
-    Route::get('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'index']);
-    Route::post('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'store']);
-    Route::get('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'show']);
-    Route::put('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'update']);
-    Route::delete('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'destroy']);
+    Route::get('agri-variedad-animales/search', [AgriVariedadAnimalController::class, 'search']);
+    Route::apiResource('agri-variedad-animales', AgriVariedadAnimalController::class);
+});
+
+//agri_animal
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('agri-animales/search', [AgriAnimalController::class, 'search']);
+    Route::apiResource('agri-animales', AgriAnimalController::class);
+});
+
+//agri_natalidad_mortalidad
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('agri-natalidad-mortalidad/search', [AgriNatalidadMortalidadController::class, 'search']);
+    Route::apiResource('agri-natalidad-mortalidad', AgriNatalidadMortalidadController::class);
 });
 
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
