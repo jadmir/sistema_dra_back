@@ -16,11 +16,22 @@ class AgriVariedadAnimalController extends Controller
         $query = AgriVariedadAnimal::query();
 
         if ($request->has('search')) {
-            $query->where('nombre', 'like', "%{$request->search}%");
+            $search = trim($request->search);
+            $query->where('nombre', 'like', "%{$search}%")
+                  ->orWhere('descripcion', 'like', "%{$search}%");
         }
 
-        $variedades = $query->paginate($perPage);
-        return response()->json($variedades);
+         $variedades = $query->orderBy('id', 'desc')->paginate($perPage);
+
+        return response()->json([
+            'message' => 'Listado de variedades animales.',
+            'meta' => [
+                'total' => $variedades->total(),
+                'current_page' => $variedades->currentPage(),
+                'last_page' => $variedades->lastPage(),
+            ],
+            'data' => $variedades->items(),
+        ]);
     }
 
     /**
@@ -29,15 +40,21 @@ class AgriVariedadAnimalController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:150',
+            'nombre' => 'required|string|max:150|unique:agri_variedad_animal,nombre',
             'descripcion' => 'nullable|string',
-            'estado' => 'boolean',
+            'estado' => 'boolean'
         ], [
             'nombre.required' => 'El nombre es obligatorio.',
-            'nombre.max' => 'El nombre no debe exceder los 150 caracteres.',
+            'nombre.unique' => 'El nombre ya está registrado.',
+            'nombre.max' => 'El nombre no debe exceder los 150 caracteres.'
         ]);
 
         try {
+            $user = $request->user();
+            if ($user) {
+                $validated['usuario_id'] = $user->id;
+            }
+            
             $validated['estado'] = $validated['estado'] ?? true;
 
             $variedadAnimal = AgriVariedadAnimal::create($validated);
@@ -66,6 +83,8 @@ class AgriVariedadAnimalController extends Controller
             return response()->json(['message' => 'Variedad animal no encontrada.'], 404);
         }
 
+        $variedadAnimal->loadMissing('usuario');
+
         return response()->json([
             'message' => 'Variedad animal encontrada.',
             'data' => $variedadAnimal
@@ -85,10 +104,15 @@ class AgriVariedadAnimalController extends Controller
             }
 
             $validated = $request->validate([
-                'nombre' => 'required|string|max:150',
+                'nombre' => 'required|string|max:150|unique:agri_variedad_animal,nombre',
                 'descripcion' => 'nullable|string',
                 'estado' => 'required|boolean',
             ]);
+
+            $user = $request->user();
+            if ($user) {
+                $validated['usuario_id'] = $user->id;
+            }
 
             $variedadAnimal->update($validated);
 
@@ -132,40 +156,38 @@ class AgriVariedadAnimalController extends Controller
     }
 
     public function search(Request $request)
-{
-    try {
-        $term = trim((string) ($request->input('q') ?? $request->input('query') ?? ''));
-        $perPage = (int) $request->input('per_page', 10);
-        $perPage = max(1, min(100, $perPage));
+    {
+        try {
+            $term = trim((string) ($request->input('q') ?? $request->input('query') ?? ''));
+            $perPage = (int) $request->input('per_page', 10);
+            $perPage = max(1, min(100, $perPage));
 
-        $query = AgriVariedadAnimal::query()->where('estado', true);
+            $query = AgriVariedadAnimal::where('estado', true);
 
-        if ($term !== '') {
-            $query->where(function ($q) use ($term) {
-                $q->where('nombre', 'like', "%{$term}%")
-                  ->orWhere('descripcion', 'like', "%{$term}%");
-            });
-        }
+            if ($term !== '') {
+                $query->where(function ($q) use ($term) {
+                    $q->where('nombre', 'like', "%{$term}%")
+                    ->orWhere('descripcion', 'like', "%{$term}%");
+                });
+            }
 
-        $results = $query->orderBy('id', 'desc')->paginate($perPage);
+            $results = $query->orderBy('id', 'desc')->paginate($perPage);
 
-        if ($results->total() === 0) {
             return response()->json([
-                'message' => 'No se encontraron variedades animales.',
-                'data' => []
+                'message' => 'Resultados de la búsqueda.',
+                'meta' => [
+                    'total' => $results->total(),
+                    'current_page' => $results->currentPage(),
+                    'last_page' => $results->lastPage(),
+                ],
+                'data' => $results->items()
             ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al realizar la búsqueda.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Resultados de la búsqueda.',
-            'data' => $results
-        ], 200);
-
-    } catch (\Throwable $e) {
-        return response()->json([
-            'message' => 'Error al realizar la búsqueda.',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 }

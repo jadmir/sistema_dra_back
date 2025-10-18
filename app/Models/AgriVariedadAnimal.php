@@ -15,11 +15,32 @@ class AgriVariedadAnimal extends Model
         'nombre',
         'descripcion',
         'estado',
+        'usuario_id',
     ];
 
-    protected $casts = [
-        'estado' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
+
+    public function animales()
+    {
+        return $this->hasMany(AgriAnimales::class, 'variedad_id');
+    }
+
+    public function sacaReproduccion()
+    {
+        return $this->hasMany(SacaReproduccion::class, 'id_agri_variedad_animal');
+    }
+
+    public function sacaVacunoDescarte()
+    {
+        return $this->hasMany(SacaVacunoDescarte::class, 'id_agri_variedad_animal');
+    }
+
+    public function mortalidad()
+    {
+        return $this->hasMany(AgriMortalidad::class, 'id_agri_variedad_animal');
+    }
+
+    public function usuario()
+    {
+        return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
 }

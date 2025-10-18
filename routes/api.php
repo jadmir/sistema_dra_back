@@ -11,6 +11,7 @@ use App\Http\Controllers\AgriNatalidadMortalidadController;
 use App\Http\Controllers\AgriVariedadController;
 use App\Http\Controllers\AgriProductoController;
 use App\Http\Controllers\AgriVariedadAnimalController;
+use App\Http\Controllers\AgriRegistroPecuarioController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -87,7 +88,7 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::apiResource('agri-variedad-animales', AgriVariedadAnimalController::class);
 });
 
-//agri_animal
+//agri_animales
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::get('agri-animales/search', [AgriAnimalController::class, 'search']);
     Route::apiResource('agri-animales', AgriAnimalController::class);
@@ -103,6 +104,11 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     //destinos
     Route::get('agri-destinos/search', [AgriDestinoController::class, 'search']);
     Route::apiResource('destinos', AgriDestinoController::class);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    Route::get('agri-registros-pecuarios/search', [AgriRegistroPecuarioController::class, 'search']);
+    Route::apiResource('agri-registros-pecuarios', AgriRegistroPecuarioController::class);
 });
 
 

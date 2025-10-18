@@ -13,18 +13,16 @@ class AgriNatalidadMortalidad extends Model
     protected $table = 'agri_natalidad_mortalidad';
 
     protected $fillable = [
-        'tipo',
         'concepto',
         'observaciones',
         'usuario_id',
         'estado',
     ];
 
-    protected $casts = [
-        'estado' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
+    public function natalidades()
+    {
+        return $this->hasMany(AgriNatalidad::class, 'agri_natalidad_mortalidad_id');
+    }
 
     public function usuario()
     {

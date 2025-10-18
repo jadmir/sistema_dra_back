@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AgriNatalidadMortalidad;
-use Illuminate\Support\Facades\Auth;
 
 class AgriNatalidadMortalidadController extends Controller
 {
@@ -14,12 +13,23 @@ class AgriNatalidadMortalidadController extends Controller
             $perPage = (int) $request->input('per_page', 10);
 
             $items = AgriNatalidadMortalidad::where('estado', true)
-                ->orderBy('id', 'desc')
+                ->orderByDesc('id', 'desc')
                 ->paginate($perPage);
 
-            return response()->json(['message' => 'Lista de registros activos.', 'data' => $items], 200);
+            return response()->json([
+                'message' => 'Lista de registros activos.',
+                'meta' => [
+                    'total' => $items->total(),
+                    'current_page' => $items->currentPage(),
+                    'last_page' => $items->lastPage(),
+                ],
+                'data' => $items->items()]);
+
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Error al listar los registros.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Error al listar los registros.', 
+                'error' => $e->getMessage()],
+            500);
         }
     }
 
@@ -27,7 +37,6 @@ class AgriNatalidadMortalidadController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'tipo' => 'required|string|max:20',
             'concepto' => 'required|string|max:100',
             'observaciones' => 'nullable|string',
             'estado' => 'boolean',
@@ -41,9 +50,15 @@ class AgriNatalidadMortalidadController extends Controller
 
             $item = AgriNatalidadMortalidad::create($validated);
 
-            return response()->json(['message' => 'Registro creado correctamente.', 'data' => $item], 201);
+            return response()->json([
+                'message' => 'Registro creado correctamente.',
+                'data' => $item],
+            201);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'No se pudo crear el registro.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'No se pudo crear el registro.',
+                'error' => $e->getMessage()],
+            500);
         }
     }
 
@@ -53,33 +68,61 @@ class AgriNatalidadMortalidadController extends Controller
         try {
             $item = AgriNatalidadMortalidad::with('usuario')->find($id);
             if (!$item || !$item->estado) {
-                return response()->json(['message' => 'Registro no encontrado o inactivo.'], 404);
+                return response()->json([
+                    'message' => 'Registro no encontrado o inactivo.'],
+                     404);
             }
-            return response()->json(['message' => 'Registro encontrado.', 'data' => $item], 200);
+
+            $item->loadMissing('usuario');
+
+            return response()->json([
+                'message' => 'Registro encontrado.',
+                'data' => $item],
+            200);
+
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Error al obtener el registro.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Error al obtener el registro.',
+                'error' => $e->getMessage()],
+            500);
         }
     }
 
     // Actualizar registro
     public function update(Request $request, $id)
     {
-         $validated = $request->validate([
-            'tipo' => 'sometimes|required|string|max:20',
-            'concepto' => 'sometimes|required|string|max:100',
-            'observaciones' => 'nullable|string',
-            'estado' => 'boolean',
-        ]);
+        
 
         try {
             $item = AgriNatalidadMortalidad::find($id);
-            if (!$item) return response()->json(['message' => 'Registro no encontrado.'], 404);
+
+           if (!$item) {
+                return response()->json(['message' => 'Registro no encontrada.'], 404);
+            }
+
+             $validated = $request->validate([
+            'concepto' => 'sometimes|required|string|max:100',
+            'observaciones' => 'nullable|string',
+            'estado' => 'boolean',
+            ]);
+
+            $user = $request->user();
+            if ($user) {
+                $validated['usuario_id'] = $user->id;
+            }
 
             $item->update($validated);
 
-            return response()->json(['message' => 'Registro actualizado.', 'data' => $item], 200);
+            return response()->json([
+                'message' => 'Registro actualizado.', 
+                'data' => $item],
+                200);
+
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'No se pudo actualizar el registro.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'No se pudo actualizar el registro.',
+                'error' => $e->getMessage()],
+                500);
         }
       
     }
@@ -114,8 +157,7 @@ class AgriNatalidadMortalidadController extends Controller
 
             if ($term !== '') {
                 $query->where(function ($q) use ($term) {
-                    $q->where('tipo', 'like', "%{$term}%")
-                    ->orWhere('concepto', 'like', "%{$term}%")
+                    $q->Where('concepto', 'like', "%{$term}%")
                     ->orWhere('observaciones', 'like', "%{$term}%");
                 });
             }
@@ -131,13 +173,18 @@ class AgriNatalidadMortalidadController extends Controller
 
             return response()->json([
                 'message' => 'Resultados de la búsqueda.',
-                'data' => $resultados
+                'meta' => [
+                    'total' => $resultados->total(),
+                    'current_page' => $resultados->currentPage(),
+                    'last_page' => $resultados->lastPage(),
+                ],
+                'data' => $resultados->items()
             ], 200);
 
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error al realizar la búsqueda.',
-                'error' => $e->getMessage() // opcional, para depurar
+                'error' => $e->getMessage()
             ], 500);
         }
         }

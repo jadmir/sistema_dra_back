@@ -5,17 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class AgriAnimales extends Model
+class AgriProductoLeche extends Model
 {
-     use HasFactory;
+    use HasFactory;
 
-    protected $table = 'agri_animales';
+    protected $table = 'agri_producto_leches';
 
     protected $fillable = [
         'registro_pecuario_id',
-        'variedad_id',
-        'total',
-        'estado',
+        'agri_destinos_id',
+        'leche_fresca_id',
+        'cantidad',
+        'precio',
         'usuario_id',
     ];
 
@@ -24,14 +25,18 @@ class AgriAnimales extends Model
         return $this->belongsTo(AgriRegistroPecuario::class, 'registro_pecuario_id');
     }
 
-    public function variedad()
+    public function destino()
     {
-        return $this->belongsTo(AgriVariedadAnimal::class, 'variedad_id');
+        return $this->belongsTo(AgriDestino::class, 'agri_destinos_id');
+    }
+
+    public function totalLeche()
+    {
+        return $this->belongsTo(LecheFresca::class, 'leche_fresca_id');
     }
 
     public function usuario()
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
-
 }
