@@ -9,6 +9,11 @@ use App\Http\Controllers\AgriAnimalController;
 use App\Http\Controllers\AgriDestinoController;
 use App\Http\Controllers\AgriNatalidadMortalidadController;
 use App\Http\Controllers\AgriVariedadController;
+use App\Http\Controllers\CultivoController;
+use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\ReporteCultivosController;
+use App\Http\Controllers\SubGrupoController;
+use App\Http\Controllers\SubSectorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -101,6 +106,27 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     //destinos
     Route::get('agri-destinos/search', [AgriDestinoController::class, 'search']);
     Route::apiResource('destinos', AgriDestinoController::class);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    //subsectores
+    Route::get('subsectores/search', [SubSectorController::class, 'search']);
+    Route::apiResource('subsectores', SubSectorController::class);
+    //grupos
+    Route::get('grupos/search', [GrupoController::class, 'search']);
+    Route::apiResource('grupos', GrupoController::class);
+
+    //sub grupos
+    Route::get('subgrupos/search', [SubGrupoController::class, 'search']);
+    Route::apiResource('subgrupos', SubGrupoController::class);
+
+    //cultivos
+    Route::get('cultivos/search', [CultivoController::class, 'search']);
+    Route::apiResource('cultivos', CultivoController::class);
+
+    //reporte cultivos
+    Route::get('reportes/cultivos/pdf', [ReporteCultivosController::class, 'pdf']);
+    Route::get('reportes/cultivos/excel', [ReporteCultivosController::class, 'excel']);
 });
 
 
