@@ -6,6 +6,7 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\AgriSacaClaseController;
 use App\Http\Controllers\AgriAnimalController;
+use App\Http\Controllers\AgriDestinoController;
 use App\Http\Controllers\AgriNatalidadMortalidadController;
 use App\Http\Controllers\AgriVariedadController;
 use Illuminate\Http\Request;
@@ -96,7 +97,11 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::delete('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'destroy']);
 });
 
-
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+    //destinos
+    Route::get('agri-destinos/search', [AgriDestinoController::class, 'search']);
+    Route::apiResource('destinos', AgriDestinoController::class);
+});
 
 
 
