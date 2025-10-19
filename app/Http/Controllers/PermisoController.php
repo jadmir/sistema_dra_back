@@ -23,8 +23,7 @@ class PermisoController extends Controller
             return response()->json($permisos, 200);
         } catch (\Throwable $e) {
             return response()->json([
-                'message' => 'Error al obtener la lista de permisos.',
-                'error'   => $e->getMessage() // TEMP: quitar en producción
+                'message' => 'Error al obtener la lista de permisos.'
             ], 500);
         }
     }
