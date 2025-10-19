@@ -2,74 +2,208 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AgriAnimales;
 use Illuminate\Http\Request;
-use App\Models\AgriAnimal;
-use Illuminate\Support\Facades\Auth;
 
 class AgriAnimalController extends Controller
 {
-    public function index() {
-        return response()->json(AgriAnimal::where('estado','activo')->get());
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
+    {
+        try {
+            $perPage = (int) $request->input('per_page', 10);
+
+            $animales = AgriAnimales::with(['usuario', 'variedad'])
+                ->where('estado', true)
+                ->orderBy('id', 'desc')
+                ->paginate($perPage);
+
+            return response()->json([
+                'message' => 'Lista de animales activos.',
+                'data' => $animales
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al listar los animales.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function store(Request $request) {
-        $request->validate([
-            'codigo'=>'required|string|max:50',
-            'variedad_id'=>'required|integer',
-            'edad'=>'required|integer',
-            'peso'=>'required|numeric',
-            'estado'=>'nullable|string|in:activo,inactivo'
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'codigo' => 'required|string|max:50|unique:agri_animales,codigo',
+            'variedad_id' => 'nullable|exists:agri_variedads,id',
+            'edad' => 'nullable|integer|min:0',
+            'peso' => 'nullable|numeric|min:0',
+            'estado' => 'boolean',
+        ], [
+            'codigo.required' => 'El código es obligatorio.',
+            'codigo.unique' => 'El código ya existe.',
         ]);
 
-        $usuario = Auth::user();
-        if(!$usuario) return response()->json(['message'=>'Usuario no autenticado'],401);
+        try {
+            $user = $request->user();
+            if ($user) {
+                $validated['usuario_id'] = $user->id;
+            }
 
-        $animal = AgriAnimal::create([
-            'codigo'=>$request->codigo,
-            'variedad_id'=>$request->variedad_id,
-            'edad'=>$request->edad,
-            'peso'=>$request->peso,
-            'estado'=>$request->estado ?? 'activo',
-            'usuario_id'=>$usuario->id
+            $validated['estado'] = $validated['estado'] ?? true;
+
+            $animal = AgriAnimales::create($validated);
+
+            return response()->json([
+                'message' => 'Animal registrado correctamente.',
+                'data' => $animal
+            ], 201);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'No se pudo registrar el animal.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(string $id)
+    {
+        try {
+            $animal = AgriAnimales::with(['usuario', 'variedad'])->find($id);
+
+            if (!$animal) {
+                return response()->json(['message' => 'Animal no encontrado.'], 404);
+            }
+
+            return response()->json([
+                'message' => 'Detalle del animal encontrado.',
+                'data' => $animal
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al obtener el detalle del animal.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, string $id)
+    {
+        $validated = $request->validate([
+            'codigo' => "sometimes|required|string|max:50|unique:agri_animales,codigo,{$id}",
+            'variedad_id' => 'nullable|exists:agri_variedads,id',
+            'edad' => 'nullable|integer|min:0',
+            'peso' => 'nullable|numeric|min:0',
+            'estado' => 'boolean',
         ]);
 
-        return response()->json(['message'=>'Animal creado correctamente','data'=>$animal],201);
+        try {
+            $animal = AgriAnimales::find($id);
+            if (!$animal) {
+                return response()->json(['message' => 'Animal no encontrado.'], 404);
+            }
+
+            $user = $request->user();
+            if ($user) {
+                $validated['usuario_id'] = $user->id;
+            }
+
+            $animal->update($validated);
+
+            return response()->json([
+                'message' => 'Animal actualizado correctamente.',
+                'data' => $animal
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'No se pudo actualizar el animal.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function show($id) {
-        return response()->json(AgriAnimal::find($id));
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+        try {
+            $animal = AgriAnimales::find($id);
+
+            if (!$animal) {
+                return response()->json(['message' => 'Animal no encontrado.'], 404);
+            }
+
+            $animal->estado = false;
+            $animal->save();
+
+            return response()->json([
+                'message' => 'Animal desactivado correctamente.',
+                'data' => $animal
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'No se pudo desactivar el animal.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function update(Request $request, $id) {
-        $animal = AgriAnimal::find($id);
+    public function search(Request $request)
+    {
+        try {
+            $perPage = (int) $request->input('per_page', 10);
+            $perPage = max(1, min(100, $perPage));
 
-        $request->validate([
-            'codigo'=>'required|string|max:50',
-            'variedad_id'=>'required|integer',
-            'edad'=>'required|integer',
-            'peso'=>'required|numeric',
-            'estado'=>'required|string|in:activo,inactivo'
-        ]);
+            $term = trim((string) ($request->input('q')
+                ?? $request->input('codigo')
+                ?? $request->input('query')
+                ?? ''));
 
-        $animal->update($request->only(['codigo','variedad_id','edad','peso','estado']));
-        return response()->json($animal);
-    }
+            $query = AgriAnimales::where('estado', true);
 
-    public function destroy($id) {
-        $animal = AgriAnimal::find($id);
-        $animal->estado='inactivo';
-        $animal->save();
-        $animal->delete();
-        return response()->json(['message'=>'Agri Animal eliminado correctamente']);
-    }
+            if ($term !== '') {
+                $query->where('codigo', 'like', "%{$term}%");
+            }
 
-    public function search(Request $request) {
-        $query = $request->input('query','');
-        $animales = AgriAnimal::where('estado','activo')
-            ->where(function($q) use ($query){
-                $q->where('codigo','like',"%$query%");
-            })->get();
+            if ($request->filled('peso')) {
+                $query->where('peso', (float) $request->input('peso'));
+            }
 
-        return response()->json($animales);
+            $animales = $query->orderBy('id', 'desc')->paginate($perPage);
+
+            if ($animales->total() === 0) {
+                return response()->json([
+                    'message' => 'No se encontraron animales con los criterios dados.',
+                    'data' => []
+                ], 200);
+            }
+
+            return response()->json([
+                'message' => 'Resultados de la búsqueda.',
+                'data' => $animales
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al realizar la búsqueda.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

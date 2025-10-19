@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('agri_natalidad_mortalidad', function (Blueprint $table) {
+        Schema::create('animal_total', function (Blueprint $table) {
             $table->id();
-            $table->string('concepto', 100);
-            $table->text('observaciones')->nullable();
-            $table->foreignId('usuario_id')->constrained('usuarios');
-            $table->boolean('estado')->default(true);
+            $table->foreignId('registro_pecuario_id')->constrained('agri_registro_pecuarios');
+            $table->string('total_animal', 150);
             $table->timestamps();
         });
     }
@@ -26,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('agri_natalidad_mortalidad');
+        Schema::dropIfExists('animal_total');
     }
 };

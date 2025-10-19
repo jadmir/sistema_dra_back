@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AgriDestino extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'agri_destinos';
 
@@ -21,11 +20,16 @@ class AgriDestino extends Model
     ];
 
     protected $dates = [
-        'deleted_at',
         'created_at',
         'updated_at'
     ];
 
+
+    public function productosLeche()
+    {
+        return $this->hasMany(AgriProductoLeche::class, 'agri_destinos_id');
+    }
+    
     //relacion con el usuario
     public function usuario()
     {
