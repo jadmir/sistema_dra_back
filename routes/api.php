@@ -17,6 +17,8 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\ReporteCultivosController;
 use App\Http\Controllers\SubGrupoController;
 use App\Http\Controllers\SubSectorController;
+use App\Http\Controllers\ReporteRegistroPecuarioController;
+use App\Models\AgriVariedadAnimal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -114,6 +116,10 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
 Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     Route::get('agri-registros-pecuarios/search', [AgriRegistroPecuarioController::class, 'search']);
     Route::apiResource('agri-registros-pecuarios', AgriRegistroPecuarioController::class);
+});
+
+Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
+   
     //subsectores
     Route::get('subsectores/search', [SubSectorController::class, 'search']);
     Route::apiResource('subsectores', SubSectorController::class);
@@ -132,7 +138,16 @@ Route::prefix('v1')->middleware(['auth.jwt'])->group(function () {
     //reporte cultivos
     Route::get('reportes/cultivos/pdf', [ReporteCultivosController::class, 'pdf']);
     Route::get('reportes/cultivos/excel', [ReporteCultivosController::class, 'excel']);
+
+    Route::get('reportes/registro-pecuario/pdf/{id}', [ReporteRegistroPecuarioController::class, 'pdf']);
+    Route::get('exportar-natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'exportExcel']);
+    Route::get('exportar-destinos', [AgriDestinoController::class, 'exportExcel']);
+    Route::get('exportar-variedad-animal', [AgriVariedadAnimalController::class, 'exportExcel']);
+
+
+
 });
+
 
 
 

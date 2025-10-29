@@ -5,7 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
-class JwtRoleMiddleware
+class RoleMiddleware
 {
     public function handle($request, Closure $next, $roleName)
     {
