@@ -28,6 +28,7 @@ class AgriRegistroPecuarioController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 10);
+        $page = $request->input('page', 1);
 
         $query = AgriRegistroPecuario::with([
             'animales.variedad',
@@ -42,9 +43,15 @@ class AgriRegistroPecuarioController extends Controller
             'informeTecnico'
         ]);
 
-        $registros = $query->orderBy('id', 'desc')->paginate($perPage);
+        $registros = $query->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page);
 
-        return response()->json($registros);
+        return response()->json([
+            'data' => $registros->items(),
+            'current_page' => $registros->currentPage(),
+            'last_page' => $registros->lastPage(),
+            'per_page' => $registros->perPage(),
+            'total' => $registros->total(),
+        ]);
     }
 
     /**
@@ -279,6 +286,12 @@ class AgriRegistroPecuarioController extends Controller
         try {
             $registro = AgriRegistroPecuario::findOrFail($id);
             $usuarioId = auth::id();
+
+            if ($registro->created_at->diffInMonths(now()) >= 1) {
+                return response()->json([
+                    'error' => 'No puedes editar este registro. Ha pasado más de un mes desde su creación.'
+                ], 403);
+            }
 
             //Actualizar tabla principal
             $registro->update($request->only([

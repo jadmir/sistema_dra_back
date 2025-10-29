@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AgriDestino;
 use Illuminate\Http\Request;
+use App\Exports\AgriDestinosExport;
+use Maatwebsite\Excel\Facades\Excel;
 class AgriDestinoController extends Controller
 {
     /**
@@ -221,5 +223,10 @@ class AgriDestinoController extends Controller
                 'message' => 'Error al realizar la búsqueda.'
             ], 500);
         }
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(new AgriDestinosExport, 'Reporte_destinos.xlsx');
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AgriNatalidadMortalidad;
+use App\Exports\AgriNatalidadMortalidadExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AgriNatalidadMortalidadController extends Controller
 {
@@ -187,5 +189,10 @@ class AgriNatalidadMortalidadController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
-        }
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(new AgriNatalidadMortalidadExport, 'natalidad_mortalidad.xlsx');
+    }
 }

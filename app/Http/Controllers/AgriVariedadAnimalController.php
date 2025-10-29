@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AgriVariedadAnimal;
 use Illuminate\Http\Request;
+use App\Exports\AgriVariedadAnimalExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AgriVariedadAnimalController extends Controller
 {
@@ -189,5 +191,10 @@ class AgriVariedadAnimalController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(new AgriVariedadAnimalExport, 'Reporte_variedad_animal.xlsx');
     }
 }
