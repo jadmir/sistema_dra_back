@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('agri_variedads', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('producto_id')->nullable()->constrained('agri_productos')->nullOnDelete()->onUpdate('cascade');
             $table->string('nombre', 150);
             $table->text('descripcion')->nullable();
-            $table->string('estado', 10)->default('activo');
+            $table->boolean('estado')->default(true); 
+            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete()->onUpdate('cascade');
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

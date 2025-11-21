@@ -9,6 +9,9 @@ use App\Http\Controllers\AgriAnimalController;
 use App\Http\Controllers\AgriDestinoController;
 use App\Http\Controllers\AgriNatalidadMortalidadController;
 use App\Http\Controllers\AgriVariedadController;
+use App\Http\Controllers\AgriProductoController;
+use App\Http\Controllers\AgriVariedadAnimalController;
+use App\Http\Controllers\AgriRegistroPecuarioController;
 use App\Http\Controllers\CultivoController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\ReporteCultivosController;
@@ -146,6 +149,14 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     // Parámetros: nivel (subsector|grupo|subgrupo|todo), sub_sector_id, grupo_id, sub_grupo_id, search
     Route::get('reportes/cultivos/pdf', [ReporteCultivosController::class, 'pdf']);
     Route::get('reportes/cultivos/excel', [ReporteCultivosController::class, 'excel']);
+
+    Route::get('reportes/registro-pecuario/pdf/{id}', [ReporteRegistroPecuarioController::class, 'pdf']);
+    Route::get('exportar-natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'exportExcel']);
+    Route::get('exportar-destinos', [AgriDestinoController::class, 'exportExcel']);
+    Route::get('exportar-variedad-animal', [AgriVariedadAnimalController::class, 'exportExcel']);
+
+
+
 });
 
 // PRECIOS - Sistema de Encuestas de Precios en Mercados
@@ -174,5 +185,6 @@ Route::prefix('precios')->middleware(['auth.jwt', 'role:Administrador,Técnico']
     Route::get('reportes/encuestadores/por-dia', [PreReporteController::class, 'encuestadoresPorDia']);
     Route::get('reportes/encuestadores/por-mes', [PreReporteController::class, 'encuestadoresPorMes']);
 });
+
 
 

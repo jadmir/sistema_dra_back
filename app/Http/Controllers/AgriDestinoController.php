@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AgriDestino;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
-
+use App\Exports\AgriDestinosExport;
+use Maatwebsite\Excel\Facades\Excel;
 class AgriDestinoController extends Controller
 {
     /**
@@ -16,7 +16,7 @@ class AgriDestinoController extends Controller
         try {
             //Permite personalizar la cantidad de registros por página (por defecto 10)
             $perPage = (int) $request->input('per_page', 10);
-            $destinos = AgriDestino::where('activo', true)
+            $destinos = AgriDestino::where('estado', true)
                 ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
@@ -29,7 +29,12 @@ class AgriDestinoController extends Controller
 
             return response()->json([
                 'message' => 'Lista de destinos activos',
-                'data' => $destinos
+            'meta' => [
+                'total' => $destinos->total(),
+                'current_page' => $destinos->currentPage(),
+                'last_page' => $destinos->lastPage(),
+            ],
+                'data' => $destinos->items()
             ], 200);
         } catch (\Throwable $e) {
             return response()->json([
@@ -48,25 +53,19 @@ class AgriDestinoController extends Controller
             'nombre.max'         => 'El nombre no debe exceder 150 caracteres.',
             'ubicacion.max'      => 'La ubicación no debe exceder 200 caracteres.',
             'descripcion.string' => 'La descripción debe ser texto.',
-            'estado.in'          => 'El estado debe ser ACTIVO o INACTIVO.',
         ];
 
         $validated = $request->validate([
             'nombre'     => 'required|string|max:150',
             'ubicacion'  => 'nullable|string|max:200',
             'descripcion'=> 'nullable|string',
-            'estado'     => 'nullable|in:ACTIVO,INACTIVO', // si usas "activo" boolean, cámbialo por sometimes|boolean
-            // usuario_id ya no viene del cliente
         ], $mensajes);
 
         try {
             $user = $request->user(); // requiere ruta protegida con auth
-            if (!$user) {
-                return response()->json(['message' => 'No autenticado.'], 401);
-            }
 
+            $validated['estado'] = true;
             $validated['usuario_id'] = $user->id;
-            $validated['estado'] = $validated['estado'] ?? 'ACTIVO'; // opcional: por defecto ACTIVO
 
             $destino = AgriDestino::create($validated);
 
@@ -89,16 +88,7 @@ class AgriDestinoController extends Controller
         try {
             $agriDestino = AgriDestino::find($id);
 
-            if (!$agriDestino) {
-                return response()->json(['message' => 'Destino no encontrado.'], 404);
-            }
-
-            // Soporta ambas convenciones: "activo" (bool) o "estado" (ACTIVO/INACTIVO)
-            $attrs = $agriDestino->getAttributes();
-            $inactivoPorActivo = array_key_exists('activo', $attrs) && (int)$agriDestino->activo === 0;
-            $inactivoPorEstado = array_key_exists('estado', $attrs) && strtoupper((string)$agriDestino->estado) !== 'ACTIVO';
-
-            if ($inactivoPorActivo || $inactivoPorEstado) {
+            if (!$agriDestino || !$agriDestino->estado) {
                 return response()->json(['message' => 'Destino no encontrado o inactivo.'], 404);
             }
 
@@ -169,18 +159,7 @@ class AgriDestinoController extends Controller
                 ], 404);
             }
 
-            // Si usas "activo" boolean
-            if (array_key_exists('activo', $destino->getAttributes())) {
-                $destino->activo = false;
-            }
-            // Si usas "estado" string
-            elseif (array_key_exists('estado', $destino->getAttributes())) {
-                $destino->estado = 'INACTIVO';
-            } else {
-                return response()->json([
-                    'message' => 'No se pudo desactivar el destino. Atributo de estado no encontrado.'
-                ], 500);
-            }
+            $destino->estado = false;
 
             $destino->save();
 
@@ -208,7 +187,7 @@ class AgriDestinoController extends Controller
                 ?? $request->input('query')
                 ?? ''));
 
-            $query = AgriDestino::where('activo', true);
+            $query = AgriDestino::where('estado', true);
 
             if ($term !== '') {
                 $query->where(function ($q) use ($term) {
@@ -244,5 +223,10 @@ class AgriDestinoController extends Controller
                 'message' => 'Error al realizar la búsqueda.'
             ], 500);
         }
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(new AgriDestinosExport, 'Reporte_destinos.xlsx');
     }
 }
