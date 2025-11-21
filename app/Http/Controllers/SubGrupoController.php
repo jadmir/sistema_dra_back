@@ -16,7 +16,8 @@ class SubGrupoController extends Controller
             // Permite personalizar la cantidad de registros por página (por defecto 10)
             $perPage = (int)$request->input('per_page', 10);
 
-            $subGrupos = SubGrupo::with('grupo')
+            // SubGrupo + grupo + subsector (optimizado hacia arriba)
+            $subGrupos = SubGrupo::with('grupo.subsector')
                 ->orderBy('codigo')
                 ->where('estado', 1)
                 ->paginate($perPage);
@@ -219,8 +220,9 @@ class SubGrupoController extends Controller
                 ], 422);
             }
 
+            // SubGrupo + grupo + subsector (sin cultivos hijos)
             $q = SubGrupo::query()
-                ->with(['grupo.subsector', 'cultivos']) // FIX: relación correcta
+                ->with(['grupo.subsector'])
                 ->where('estado', 1);
 
             if ($term !== '') {

@@ -118,6 +118,7 @@ class CultivoController extends Controller
 
     /**
      * Update the specified resource in storage.
+     * Nota: El código NO se actualiza porque es identificador único e inmutable
      */
     public function update(Request $request, $id)
     {
@@ -126,6 +127,7 @@ class CultivoController extends Controller
             'sub_grupo_id.exists'   => 'El sub grupo indicado no existe.',
         ];
 
+        // El 'codigo' no se incluye intencionalmente (inmutable)
         $data = $request->validate([
             'sub_grupo_id' => 'required|exists:sub_grupos,id',
             'descripcion'  => 'nullable|string|max:200',

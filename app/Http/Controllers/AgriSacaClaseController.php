@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 
 class AgriSacaClaseController extends Controller
 {
-  
+
     // Listado
     public function index()
     {
@@ -58,11 +58,10 @@ class AgriSacaClaseController extends Controller
 
         $request->validate([
             'nombre' => 'required|string|max:150',
-            'descripcion' => 'nullable|string',
-            'estado' => 'required|string|in:activo,inactivo'
+            'descripcion' => 'nullable|string'
         ]);
 
-        $clase->update($request->only(['nombre', 'descripcion', 'estado']));
+        $clase->update($request->only(['nombre', 'descripcion']));
 
         return response()->json($clase);
     }

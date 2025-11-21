@@ -29,6 +29,32 @@ class PermisoController extends Controller
     }
 
     /**
+     * Búsqueda de permisos
+     */
+    public function search(Request $request)
+    {
+        $query = $request->input('q');
+        $id = $request->input('id');
+
+        $permisos = Permiso::query();
+
+        // Si hay búsqueda por ID específico
+        if ($id) {
+            $permisos->where('id', $id);
+        }
+
+        // Búsqueda general por nombre o descripción
+        if ($query) {
+            $permisos->where(function($q) use ($query) {
+                $q->where('nombre', 'LIKE', "%{$query}%")
+                  ->orWhere('descripcion', 'LIKE', "%{$query}%");
+            });
+        }
+
+        return response()->json($permisos->paginate(10));
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()

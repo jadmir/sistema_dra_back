@@ -39,6 +39,7 @@ class ReporteCultivosController extends Controller
         try {
             $request->validate([
                 'tipo'          => 'sometimes|in:agrupado,simple',
+                'nivel'         => 'sometimes|in:subsector,grupo,subgrupo,cultivo,todo',
                 'sub_sector_id' => 'sometimes|integer|exists:sub_sectores,id',
                 'grupo_id'      => 'sometimes|integer|exists:grupos,id',
                 'sub_grupo_id'  => 'sometimes|integer|exists:sub_grupos,id',
@@ -47,6 +48,7 @@ class ReporteCultivosController extends Controller
             ]);
 
             $tipo     = $request->get('tipo', 'agrupado');
+            $nivel    = $request->get('nivel', 'todo'); // nuevo parámetro
             $filters  = $this->filtros($request);
 
             if ($tipo === 'simple') {
@@ -57,19 +59,21 @@ class ReporteCultivosController extends Controller
                     'fecha'    => now()->format('d/m/Y H:i'),
                 ];
             } else {
-                $subsectores = $this->getJerarquia($filters);
+                $subsectores = $this->getJerarquiaPorNivel($filters, $nivel);
                 $view = 'reportes.cultivos_agrupado';
                 $data = [
                     'subsectores' => $subsectores,
                     'fecha'       => now()->format('d/m/Y H:i'),
+                    'nivel'       => $nivel,
                 ];
             }
 
             $pdf = Pdf::loadView($view, $data)->setPaper('a4', 'portrait');
-            return $pdf->stream("reporte_cultivos_{$tipo}.pdf");
+            return $pdf->stream("reporte_cultivos_{$tipo}_{$nivel}.pdf");
         } catch (\Throwable $e) {
             return response()->json([
-                'message' => 'Error al generar el PDF de cultivos.'
+                'message' => 'Error al generar el PDF de cultivos.',
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
@@ -131,12 +135,66 @@ class ReporteCultivosController extends Controller
             ->get();
     }
 
+    // Nueva función: Obtener jerarquía según el nivel seleccionado
+    private function getJerarquiaPorNivel(array $filters, string $nivel = 'todo')
+    {
+        $term = $filters['search'] ?? '';
+
+        switch ($nivel) {
+            case 'subsector':
+                // Solo mostrar subsectores (sin hijos)
+                return SubSector::query()
+                    ->where('estado', 1)
+                    ->when(isset($filters['sub_sector_id']), fn($q) => $q->where('id', $filters['sub_sector_id']))
+                    ->orderBy('codigo')
+                    ->get();
+
+            case 'grupo':
+                // Subsectores con sus grupos (sin subgrupos ni cultivos)
+                return SubSector::query()
+                    ->where('estado', 1)
+                    ->when(isset($filters['sub_sector_id']), fn($q) => $q->where('id', $filters['sub_sector_id']))
+                    ->with(['grupos' => function ($q) use ($filters) {
+                        $q->where('estado', 1)
+                          ->when(isset($filters['grupo_id']), fn($qq) => $qq->where('id', $filters['grupo_id']))
+                          ->orderBy('codigo');
+                    }])
+                    ->orderBy('codigo')
+                    ->get();
+
+            case 'subgrupo':
+                // Hasta subgrupos (sin cultivos)
+                return SubSector::query()
+                    ->where('estado', 1)
+                    ->when(isset($filters['sub_sector_id']), fn($q) => $q->where('id', $filters['sub_sector_id']))
+                    ->with(['grupos' => function ($q) use ($filters) {
+                        $q->where('estado', 1)
+                          ->when(isset($filters['grupo_id']), fn($qq) => $qq->where('id', $filters['grupo_id']))
+                          ->with(['subgrupos' => function ($q2) use ($filters) {
+                              $q2->where('estado', 1)
+                                 ->when(isset($filters['sub_grupo_id']), fn($qq2) => $qq2->where('id', $filters['sub_grupo_id']))
+                                 ->orderBy('codigo');
+                          }])
+                          ->orderBy('codigo');
+                    }])
+                    ->orderBy('codigo')
+                    ->get();
+
+            case 'cultivo':
+            case 'todo':
+            default:
+                // Jerarquía completa (método anterior)
+                return $this->getJerarquia($filters);
+        }
+    }
+
     // Reporte Excel de cultivos (simple o agrupado)
     public function excel(Request $request)
     {
         try {
             $request->validate([
                 'tipo'          => 'sometimes|in:agrupado,simple',
+                'nivel'         => 'sometimes|in:subsector,grupo,subgrupo,cultivo,todo',
                 'sub_sector_id' => 'sometimes|integer|exists:sub_sectores,id',
                 'grupo_id'      => 'sometimes|integer|exists:grupos,id',
                 'sub_grupo_id'  => 'sometimes|integer|exists:sub_grupos,id',
@@ -145,16 +203,23 @@ class ReporteCultivosController extends Controller
             ]);
 
             $tipo    = $request->get('tipo', 'agrupado');
-            $filters = $this->filtros($request); // unificados
+            $nivel   = $request->get('nivel', 'todo'); // nuevo parámetro
+            $filters = $this->filtros($request);
             $stamp   = now()->format('Ymd_His');
 
             if ($tipo === 'simple') {
                 return Excel::download(new CultivosExport($filters), "reporte_cultivos_simple_{$stamp}.xlsx");
             }
 
-            return Excel::download(new CultivosAgrupadoExport($filters), "reporte_cultivos_agrupado_{$stamp}.xlsx");
+            return Excel::download(
+                new CultivosAgrupadoExport($filters, $nivel),
+                "reporte_cultivos_{$nivel}_{$stamp}.xlsx"
+            );
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Error al generar el Excel de cultivos.'], 500);
+            return response()->json([
+                'message' => 'Error al generar el Excel de cultivos.',
+                'error'   => $e->getMessage()
+            ], 500);
         }
     }
 }
