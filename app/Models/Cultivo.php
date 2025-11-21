@@ -28,6 +28,11 @@ class Cultivo extends Model
         return $this->belongsTo(SubGrupo::class, 'sub_grupo_id');
     }
 
+    public function usuario()
+    {
+        return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
+
     public function scopeActivos($q)
     {
         return $q->where('estado', true);

@@ -222,8 +222,9 @@ class GrupoController extends Controller
                 ], 422);
             }
 
+        // Grupo + subsector padre (sin hijos)
         $q = Grupo::query()
-                ->with('subsector','subgrupos.cultivos')
+                ->with('subsector')
                 ->where('estado', 1); // solo activos
 
             if ($term !== '') {

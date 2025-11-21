@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AgriSacaClase;
 class AgriSacaClaseController extends Controller
 {
-  
+
     // Listado
     public function index(Request $request)
     {
@@ -88,27 +88,14 @@ class AgriSacaClaseController extends Controller
     {
         $clase = AgriSacaClase::find($id);
 
-        if (!$clase) {
-            return response()->json(['message' => 'Clase no encontrada.'], 404);
-        }
-
-        $validated = $request->validate([
-            'nombre' => 'sometimes|required|string|max:150',
-            'descripcion' => 'nullable|string',
-            'estado' => 'required|string|in:activo,inactivo'
+        $request->validate([
+            'nombre' => 'required|string|max:150',
+            'descripcion' => 'nullable|string'
         ]);
 
-        try {
-            $clase->fill($validated);
-            $clase->save();
+        $clase->update($request->only(['nombre', 'descripcion']));
 
-            return response()->json([
-                'message' => 'Clase actualizada correctamente.',
-                'data' => $clase
-            ], 200);
-        } catch (\Throwable $e) {
-            return response()->json(['message' => 'No se pudo actualizar la clase.'], 500);
-        }
+        return response()->json($clase);
     }
 
     // Eliminar
