@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
@@ -47,10 +48,20 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $usuario = DB::table('usuarios')->where('email', $request->email)->first();
+        $credentials = $request->only('email', 'password');
 
-        if(!$usuario || !Hash::check($request->password, $usuario->password)) {
+        // Usar el modelo Usuario con la relación rol
+        $usuario = Usuario::with(['rol.permisos'])
+            ->where('email', $credentials['email'])
+            ->first();
+
+        if (!$usuario || !Hash::check($credentials['password'], $usuario->password)) {
             return response()->json(['error' => 'Credenciales inválidas'], 401);
+        }
+
+        // Verificar si el usuario está activo
+        if (!$usuario->activo) {
+            return response()->json(['error' => 'Usuario desactivado'], 403);
         }
 
         $accessToken = $this->generateToken($usuario->id, $usuario->rol_id);
@@ -66,6 +77,17 @@ class AuthController extends Controller
                 'nombre' => $usuario->nombre,
                 'apellido' => $usuario->apellido,
                 'rol_id' => $usuario->rol_id,
+                'rol' => [
+                    'id' => $usuario->rol->id,
+                    'nombre' => $usuario->rol->nombre,
+                    'permisos' => $usuario->rol->permisos->map(function ($permiso) {
+                        return [
+                            'id' => $permiso->id,
+                            'nombre' => $permiso->nombre,
+                            'descripcion' => $permiso->descripcion,
+                        ];
+                    }),
+                ],
             ],
         ]);
     }
@@ -73,10 +95,41 @@ class AuthController extends Controller
     public function perfil(Request $request)
     {
         $userId = $request->get('jwt_user_id');
-        $usuario = DB::table('usuarios')->where('id', $userId)->first();
+
+        // Usar el modelo Usuario con la relación rol y permisos
+        $usuario = Usuario::with(['rol.permisos'])
+            ->where('id', $userId)
+            ->first();
+
+        if (!$usuario) {
+            return response()->json([
+                'error' => 'Usuario no encontrado'
+            ], 404);
+        }
 
         return response()->json([
-            'usuario' => $usuario
+            'usuario' => [
+                'id' => $usuario->id,
+                'email' => $usuario->email,
+                'nombre' => $usuario->nombre,
+                'apellido' => $usuario->apellido,
+                'dni' => $usuario->dni,
+                'direccion' => $usuario->direccion,
+                'celular' => $usuario->celular,
+                'rol_id' => $usuario->rol_id,
+                'activo' => $usuario->activo,
+                'rol' => [
+                    'id' => $usuario->rol->id,
+                    'nombre' => $usuario->rol->nombre,
+                    'permisos' => $usuario->rol->permisos->map(function ($permiso) {
+                        return [
+                            'id' => $permiso->id,
+                            'nombre' => $permiso->nombre,
+                            'descripcion' => $permiso->descripcion,
+                        ];
+                    }),
+                ],
+            ],
         ]);
     }
 
@@ -107,6 +160,86 @@ class AuthController extends Controller
                 'detalle' => $e->getMessage()
             ], 401);
         }
+    }
+
+    public function actualizarPerfil(Request $request)
+    {
+        $userId = $request->get('jwt_user_id');
+
+        $usuario = Usuario::find($userId);
+
+        if (!$usuario) {
+            return response()->json([
+                'error' => 'Usuario no encontrado'
+            ], 404);
+        }
+
+        // Validación de campos
+        $mensajes = [
+            'email.email' => 'El email debe ser válido.',
+            'email.unique' => 'Este email ya está en uso.',
+            'dni.unique' => 'Este DNI ya está en uso.',
+            'dni.max' => 'El DNI no puede tener más de 20 caracteres.',
+            'nombre.max' => 'El nombre no puede tener más de 100 caracteres.',
+            'apellido.max' => 'El apellido no puede tener más de 100 caracteres.',
+            'direccion.max' => 'La dirección no puede tener más de 150 caracteres.',
+            'celular.max' => 'El celular no puede tener más de 20 caracteres.',
+        ];
+
+        $validated = $request->validate([
+            'email' => ['sometimes', 'email', "unique:usuarios,email,{$usuario->id}"],
+            'dni' => ['sometimes', 'string', 'max:20', "unique:usuarios,dni,{$usuario->id}"],
+            'nombre' => ['sometimes', 'string', 'max:100'],
+            'apellido' => ['sometimes', 'string', 'max:100'],
+            'direccion' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'celular' => ['sometimes', 'nullable', 'string', 'max:20'],
+        ], $mensajes);
+
+        if (empty($validated)) {
+            return response()->json([
+                'message' => 'No se enviaron datos para actualizar.'
+            ], 422);
+        }
+
+        // Actualizar solo los campos enviados
+        $usuario->fill($validated);
+
+        if (!$usuario->isDirty()) {
+            return response()->json([
+                'message' => 'No hay cambios para aplicar.'
+            ], 422);
+        }
+
+        $usuario->save();
+
+        // Recargar el usuario con sus relaciones
+        $usuario->load(['rol.permisos']);
+
+        return response()->json([
+            'message' => 'Perfil actualizado correctamente',
+            'usuario' => [
+                'id' => $usuario->id,
+                'email' => $usuario->email,
+                'nombre' => $usuario->nombre,
+                'apellido' => $usuario->apellido,
+                'dni' => $usuario->dni,
+                'direccion' => $usuario->direccion,
+                'celular' => $usuario->celular,
+                'rol_id' => $usuario->rol_id,
+                'activo' => $usuario->activo,
+                'rol' => [
+                    'id' => $usuario->rol->id,
+                    'nombre' => $usuario->rol->nombre,
+                    'permisos' => $usuario->rol->permisos->map(function ($permiso) {
+                        return [
+                            'id' => $permiso->id,
+                            'nombre' => $permiso->nombre,
+                            'descripcion' => $permiso->descripcion,
+                        ];
+                    }),
+                ],
+            ],
+        ], 200);
     }
 
     public function logout(Request $request)

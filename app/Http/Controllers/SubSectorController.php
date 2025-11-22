@@ -16,8 +16,8 @@ class SubSectorController extends Controller
             // Permite personalizar la cantidad de registros por página (por defecto 10)
             $perPage = (int)$request->input('per_page', 10);
 
+            // Solo trae subsectores sin relaciones hijas (optimizado)
             $subSectores = SubSector::activos()
-                ->with('grupos.subgrupos.cultivos')
                 ->orderBy('codigo')
                 ->where('estado', 1)
                 ->paginate($perPage);
@@ -220,8 +220,8 @@ class SubSectorController extends Controller
                 ], 422);
             }
 
+            // Solo trae subsectores sin relaciones hijas (optimizado)
             $q = SubSector::query()
-                ->with('grupos.subgrupos.cultivos')
                 ->where('estado', 1);
 
             if ($term !== '') {

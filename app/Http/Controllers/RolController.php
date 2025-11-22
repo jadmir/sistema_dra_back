@@ -32,6 +32,32 @@ class RolController extends Controller
     }
 
     /**
+     * Búsqueda de roles
+     */
+    public function search(Request $request)
+    {
+        $query = $request->input('q');
+        $id = $request->input('id');
+
+        $roles = Rol::with('permisos');
+
+        // Si hay búsqueda por ID específico
+        if ($id) {
+            $roles->where('id', $id);
+        }
+
+        // Búsqueda general por nombre o descripción
+        if ($query) {
+            $roles->where(function($q) use ($query) {
+                $q->where('nombre', 'LIKE', "%{$query}%")
+                  ->orWhere('descripcion', 'LIKE', "%{$query}%");
+            });
+        }
+
+        return response()->json($roles->paginate(10));
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()
@@ -67,12 +93,6 @@ class RolController extends Controller
                 'message' => 'No se pudo crear el rol.'
             ], 500);
         }
-
-        $role = Rol::created($validated);
-        return response()->json([
-            'message' => 'rol creado correctamente',
-            'role' => $role
-        ], 201);
     }
 
     /**
@@ -184,56 +204,55 @@ class RolController extends Controller
 
     }
 
-    //Asignacion de permisos
     public function asignarPermisos(Request $request, $id)
-    {
-        $mensajes = [
-            'permisos.required' => 'Debe proporcionar un array de IDs de permisos.',
-            'permisos.array'    => 'El campo permisos debe ser un array.',
-            'permisos.*.exists' => 'Uno o más IDs de permisos no existen.',
-            'modo.in'           => 'El modo debe ser "sincronizar" o "agregar".'
-        ];
+{
+    $mensajes = [
+        'permisos.required' => 'Debe proporcionar un array de IDs de permisos.',
+        'permisos.array'    => 'El campo permisos debe ser un array.',
+        'permisos.*.exists' => 'Uno o más IDs de permisos no existen.',
+        'modo.in'           => 'El modo debe ser "sync" o "append".'
+    ];
 
-        $data = $request->validate([
-            'permisos'   => ['required','array','min:1'],
-            'permisos.*' => ['integer','exists:permisos,id'],
-            'modo'       => ['nullable','in:sync,append']
-        ], $mensajes);
+    // Quitar min:1 para permitir vacío y así poder limpiar todos
+    $data = $request->validate([
+        'permisos'   => ['required','array'],        // sin min:1
+        'permisos.*' => ['integer','exists:permisos,id'],
+        'modo'       => ['nullable','in:sync,append']
+    ], $mensajes);
 
-        try {
-            $rol = Rol::with('permisos')->find($id);
-            if (!$rol) {
-                return response()->json([
-                    'message' => 'Rol no encontrado.'
-                ], 404);
-            }
-
-            $sincronizar = ($data['modo'] ?? 'sync') === 'sync';
-
-            if ($sincronizar) {
-                // Sincroniza: elimina permisos no incluidos y agrega los nuevos
-                $rol->permisos()->sync($data['permisos']);
-            } else {
-                // Agrega: mantiene los existentes y añade los nuevos sin duplicados
-                $existentes = $rol->permisos()->pluck('permisos.id')->toArray();
-                $nuevos = array_diff($data['permisos'], $existentes);
-                if ($nuevos) {
-                    $rol->permisos()->attach($nuevos);
-                }
-            }
-
-            return response()->json([
-                'message' => $sincronizar
-                    ? 'Permisos sincronizados correctamente.'
-                    : 'Permisos agregados correctamente.',
-                'rol' => $rol->load('permisos')
-            ], 200);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'Error al asignar permisos al rol.',
-                'error'   => $e->getMessage() // TEMP: quitar en producción
-            ], 500);
+    try {
+        $rol = Rol::with('permisos')->find($id);
+        if (!$rol) {
+            return response()->json(['message' => 'Rol no encontrado.'], 404);
         }
+
+        $sincronizar = ($data['modo'] ?? 'sync') === 'sync';
+
+        if ($sincronizar) {
+            // Permite sync([]) para limpiar todos
+            $rol->permisos()->sync($data['permisos']);
+        } else {
+            // Agrega nuevos sin eliminar existentes
+            $existentes = $rol->permisos()->pluck('permisos.id')->toArray();
+            $nuevos = array_diff($data['permisos'], $existentes);
+            if (!empty($nuevos)) {
+                $rol->permisos()->attach($nuevos);
+            }
+        }
+
+        $rol->load('permisos');
+
+        return response()->json([
+            'message' => $sincronizar
+                ? 'Permisos sincronizados correctamente.'
+                : 'Permisos agregados correctamente.',
+            'rol' => $rol
+        ], 200);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'message' => 'Error al asignar permisos al rol.',
+        ], 500);
     }
+}
 
 }

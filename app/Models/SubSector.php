@@ -35,7 +35,7 @@ class SubSector extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 
     public function scopeActivos($q)
