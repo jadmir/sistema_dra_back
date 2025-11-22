@@ -45,8 +45,20 @@ class AgriRegistroPecuarioController extends Controller
 
         $registros = $query->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page);
 
+        //MAPEAR Y AÑADIR "editable" A CADA REGISTRO
+        $items = collect($registros->items())->map(function ($r) {
+            // created_at ya es Carbon (porque es Eloquent)
+            $editable = $r->created_at->diffInDays(now()) <= 30;
+
+            // convertimos el modelo a array y añadimos editable
+            $arr = $r->toArray();
+            $arr['editable'] = $editable;
+
+            return $arr;
+        });
+
         return response()->json([
-            'data' => $registros->items(),
+            'data' => $items,
             'current_page' => $registros->currentPage(),
             'last_page' => $registros->lastPage(),
             'per_page' => $registros->perPage(),
@@ -62,7 +74,7 @@ class AgriRegistroPecuarioController extends Controller
         DB::beginTransaction();
 
         try {
-            //Validación 
+            //Validación
             $validated = $request->validate([
                 'codigo_establo' => 'nullable|string|max:200',
                 'ubigeo' => 'nullable|string|max:100',
@@ -173,7 +185,7 @@ class AgriRegistroPecuarioController extends Controller
 
             // Registrar total de saca
             $totalSaca = collect($request->input('saca_reproduccion', []))->sum('saca_unidad') +
-                        collect($request->input('saca_vacuno_descarte', []))->sum('saca_unidad');
+                collect($request->input('saca_vacuno_descarte', []))->sum('saca_unidad');
 
             if ($totalSaca > 0) {
                 AgriSacaTotal::create([
@@ -210,10 +222,10 @@ class AgriRegistroPecuarioController extends Controller
 
             // Registrar inform técnico
             if ($request->filled('informe_tecnico')) {
-                $info = $request->informe_tecnico;
+                $info = $request->input('informe_tecnico');
                 InformeTecnico::create([
                     'id_agri_registro_pecuario' => $registro->id,
-                    'informante' => $info['informante'],
+                    'informante' => $info['informante'] ?? null,
                     'email' => $info['email'] ?? null,
                     'telefono' => $info['telefono'] ?? null,
                     'cargo' => $info['cargo'],
@@ -229,7 +241,6 @@ class AgriRegistroPecuarioController extends Controller
                 'message' => 'Registro pecuario guardado correctamente',
                 'registro_pecuario_id' => $registro->id
             ], 201);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
@@ -258,16 +269,20 @@ class AgriRegistroPecuarioController extends Controller
                 'informeTecnico'
             ])->findOrFail($id);
 
+            //editar (30 días)
+            $editable = $registro->created_at->diffInDays(now()) <= 30;
+
             return response()->json([
                 'success' => true,
                 'message' => 'Registro pecuario encontrado.',
-                'data' => $registro
+                'data' => $registro,
+                'editable' => $editable
             ], 200);
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'El registro pecuario no existe.'
-                ], 404);
+            ], 404);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
@@ -287,7 +302,8 @@ class AgriRegistroPecuarioController extends Controller
             $registro = AgriRegistroPecuario::findOrFail($id);
             $usuarioId = auth::id();
 
-            if ($registro->created_at->diffInMonths(now()) >= 1) {
+            //Bloqueo si el registro tiene más de 1 mes
+            if ($registro->created_at->diffInDays(now()) > 30) {
                 return response()->json([
                     'error' => 'No puedes editar este registro. Ha pasado más de un mes desde su creación.'
                 ], 403);
@@ -295,25 +311,82 @@ class AgriRegistroPecuarioController extends Controller
 
             //Actualizar tabla principal
             $registro->update($request->only([
-                'codigo_establo', 'ubigeo', 'mes_de_referencia', 'anio',
-                'region', 'provincia', 'distrito', 'nombre_establo',
-                'producto_razon_social', 'direccion', 'ruc'
+                'codigo_establo',
+                'ubigeo',
+                'mes_de_referencia',
+                'anio',
+                'region',
+                'provincia',
+                'distrito',
+                'nombre_establo',
+                'producto_razon_social',
+                'direccion',
+                'ruc'
             ]));
+
+            // Eliminacion (SoftDelete)
+            $idsAnimales = collect($request->input('animales', []))->pluck('id')->filter()->all();
+            $registro->animales()->whereNotIn('id', $idsAnimales)->delete();
+
+            $idsProductos = collect($request->input('producto_leches', []))->pluck('id')->filter()->all();
+            $registro->productosLeche()->whereNotIn('id', $idsProductos)->delete();
+
+            $idsSacaRepr = collect($request->input('saca_reproduccion', []))->pluck('id')->filter()->all();
+            $registro->sacaReproduccion()->whereNotIn('id', $idsSacaRepr)->delete();
+
+            $idsSacaVac = collect($request->input('saca_vacuno_descarte', []))->pluck('id')->filter()->all();
+            $registro->sacaVacunoDescarte()->whereNotIn('id', $idsSacaVac)->delete();
+
+            $idsNatalidad = collect($request->input('natalidad', []))->pluck('id')->filter()->all();
+            $registro->natalidad()->whereNotIn('id', $idsNatalidad)->delete();
+
+            $idsMortalidad = collect($request->input('mortalidad', []))->pluck('id')->filter()->all();
+            $registro->mortalidad()->whereNotIn('id', $idsMortalidad)->delete();
 
             //Animales
             $totalAnimales = 0;
-            foreach ($request->animales as $a) {
-                AgriAnimales::updateOrCreate(
-                    ['id' => $a['id'] ?? null],
-                    [
-                        'registro_pecuario_id' => $registro->id,
-                        'variedad_id' => $a['variedad_id'],
-                        'total' => $a['total'],
-                        'estado' => true,
-                        'usuario_id' => $usuarioId,
-                    ]
-                );
-                $totalAnimales += (int)$a['total'];
+
+            foreach ($request->input('animales', []) as $a) {
+                // si viene id -> actualizar/restore por id
+                if (!empty($a['id'])) {
+                    AgriAnimales::withTrashed()->updateOrCreate(
+                        ['id' => $a['id']],
+                        [
+                            'registro_pecuario_id' => $registro->id,
+                            'variedad_id' => $a['variedad_id'],
+                            'total' => $a['total'],
+                            'estado' => true,
+                            'usuario_id' => $usuarioId,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    // buscar trashed que coincida en claves
+                    $found = AgriAnimales::withTrashed()
+                        ->where('registro_pecuario_id', $registro->id)
+                        ->where('variedad_id', $a['variedad_id'])
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) {
+                            $found->restore();
+                        }
+                        $found->update([
+                            'total' => $a['total'],
+                            'estado' => true,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    } else {
+                        AgriAnimales::create([
+                            'registro_pecuario_id' => $registro->id,
+                            'variedad_id' => $a['variedad_id'],
+                            'total' => $a['total'],
+                            'estado' => true,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    }
+                }
+                $totalAnimales += (int) ($a['total'] ?? 0);
             }
 
             AnimalTotal::updateOrCreate(
@@ -321,104 +394,228 @@ class AgriRegistroPecuarioController extends Controller
                 ['total_animal' => $totalAnimales]
             );
 
-            //Leche Fresca y Productos de Leche
+            // ---- Leche Fresca y Productos de Leche (clave sugerida: registro + agri_destinos_id) ----
             $totalLeche = 0;
             $lecheFresca = LecheFresca::updateOrCreate(
                 ['registro_pecuario_id' => $registro->id],
                 ['total_leche' => 0]
             );
 
-            foreach ($request->producto_leches as $p) {
-                AgriProductoLeche::updateOrCreate(
-                    ['id' => $p['id'] ?? null],
-                    [
-                        'registro_pecuario_id' => $registro->id,
-                        'leche_fresca_id' => $lecheFresca->id,
-                        'agri_destinos_id' => $p['agri_destinos_id'],
-                        'cantidad' => $p['cantidad'],
-                        'precio' => $p['precio'],
-                        'usuario_id' => $usuarioId,
-                    ]
-                );
-                $totalLeche += (float)$p['cantidad'];
+            foreach ($request->input('producto_leches', []) as $p) {
+                if (!empty($p['id'])) {
+                    AgriProductoLeche::withTrashed()->updateOrCreate(
+                        ['id' => $p['id']],
+                        [
+                            'registro_pecuario_id' => $registro->id,
+                            'leche_fresca_id' => $lecheFresca->id,
+                            'agri_destinos_id' => $p['agri_destinos_id'] ?? null,
+                            'cantidad' => $p['cantidad'] ?? null,
+                            'precio' => $p['precio'] ?? null,
+                            'usuario_id' => $usuarioId,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    $found = AgriProductoLeche::withTrashed()
+                        ->where('registro_pecuario_id', $registro->id)
+                        ->where('agri_destinos_id', $p['agri_destinos_id'] ?? null)
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) {
+                            $found->restore();
+                        }
+                        $found->update([
+                            'cantidad' => $p['cantidad'] ?? null,
+                            'precio' => $p['precio'] ?? null,
+                            'usuario_id' => $usuarioId,
+                            'leche_fresca_id' => $lecheFresca->id,
+                        ]);
+                    } else {
+                        AgriProductoLeche::create([
+                            'registro_pecuario_id' => $registro->id,
+                            'leche_fresca_id' => $lecheFresca->id,
+                            'agri_destinos_id' => $p['agri_destinos_id'] ?? null,
+                            'cantidad' => $p['cantidad'] ?? null,
+                            'precio' => $p['precio'] ?? null,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    }
+                }
+                $totalLeche += (float)($p['cantidad'] ?? 0);
             }
 
             $lecheFresca->update(['total_leche' => $totalLeche]);
 
-            //Saca Reproducción
-            foreach ($request->saca_reproduccion as $sr) {
-                SacaReproduccion::updateOrCreate(
-                    ['id' => $sr['id'] ?? null],
-                    [
-                        'saca_unidad' => $sr['saca_unidad'],
-                        'precio_venta' => $sr['precio_venta'],
-                        'id_agri_registro_pecuario' => $registro->id,
-                        'id_agri_variedad_animal' => $sr['id_agri_variedad_animal'],
-                        'usuario_id' => $usuarioId,
-                    ]
-                );
+            // ---- Saca Reproducción (clave: registro + id_agri_variedad_animal) ----
+            foreach ($request->input('saca_reproduccion', []) as $sr) {
+                if (!empty($sr['id'])) {
+                    SacaReproduccion::withTrashed()->updateOrCreate(
+                        ['id' => $sr['id']],
+                        [
+                            'saca_unidad' => $sr['saca_unidad'] ?? null,
+                            'precio_venta' => $sr['precio_venta'] ?? null,
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $sr['id_agri_variedad_animal'] ?? null,
+                            'usuario_id' => $usuarioId,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    $found = SacaReproduccion::withTrashed()
+                        ->where('id_agri_registro_pecuario', $registro->id)
+                        ->where('id_agri_variedad_animal', $sr['id_agri_variedad_animal'] ?? null)
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) $found->restore();
+                        $found->update([
+                            'saca_unidad' => $sr['saca_unidad'] ?? null,
+                            'precio_venta' => $sr['precio_venta'] ?? null,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    } else {
+                        SacaReproduccion::create([
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $sr['id_agri_variedad_animal'] ?? null,
+                            'saca_unidad' => $sr['saca_unidad'] ?? null,
+                            'precio_venta' => $sr['precio_venta'] ?? null,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    }
+                }
             }
 
-            //Saca Vacuno Descarte
-            foreach ($request->saca_vacuno_descarte as $sd) {
-                SacaVacunoDescarte::updateOrCreate(
-                    ['id' => $sd['id'] ?? null],
-                    [
-                        'saca_unidad' => $sd['saca_unidad'],
-                        'precio_venta' => $sd['precio_venta'],
-                        'peso_promedio_vivo' => $sd['peso_promedio_vivo'],
-                        'id_agri_registro_pecuario' => $registro->id,
-                        'id_agri_variedad_animal' => $sd['id_agri_variedad_animal'],
-                        'usuario_id' => $usuarioId,
-                    ]
-                );
+            // ---- Saca Vacuno Descarte ----
+            foreach ($request->input('saca_vacuno_descarte', []) as $sd) {
+                if (!empty($sd['id'])) {
+                    SacaVacunoDescarte::withTrashed()->updateOrCreate(
+                        ['id' => $sd['id']],
+                        [
+                            'saca_unidad' => $sd['saca_unidad'] ?? null,
+                            'precio_venta' => $sd['precio_venta'] ?? null,
+                            'peso_promedio_vivo' => $sd['peso_promedio_vivo'] ?? null,
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $sd['id_agri_variedad_animal'] ?? null,
+                            'usuario_id' => $usuarioId,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    $found = SacaVacunoDescarte::withTrashed()
+                        ->where('id_agri_registro_pecuario', $registro->id)
+                        ->where('id_agri_variedad_animal', $sd['id_agri_variedad_animal'] ?? null)
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) $found->restore();
+                        $found->update([
+                            'saca_unidad' => $sd['saca_unidad'] ?? null,
+                            'precio_venta' => $sd['precio_venta'] ?? null,
+                            'peso_promedio_vivo' => $sd['peso_promedio_vivo'] ?? null,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    } else {
+                        SacaVacunoDescarte::create([
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $sd['id_agri_variedad_animal'] ?? null,
+                            'saca_unidad' => $sd['saca_unidad'] ?? null,
+                            'precio_venta' => $sd['precio_venta'] ?? null,
+                            'peso_promedio_vivo' => $sd['peso_promedio_vivo'] ?? null,
+                            'usuario_id' => $usuarioId,
+                        ]);
+                    }
+                }
             }
 
-            //Total de Saca
-            $totalSaca = collect($request->saca_reproduccion)->sum('saca_unidad')
-                        + collect($request->saca_vacuno_descarte)->sum('saca_unidad');
+            // ---- Recalcular total saca y guardar ----
+            $totalSaca = collect($request->input('saca_reproduccion', []))->sum('saca_unidad')
+                + collect($request->input('saca_vacuno_descarte', []))->sum('saca_unidad');
 
             AgriSacaTotal::updateOrCreate(
                 ['id_agri_registro_pecuario' => $registro->id],
                 ['total_leche' => $totalSaca]
             );
 
-            //Natalidad y Mortalidad
-            foreach ($request->natalidad as $n) {
-                AgriNatalidad::updateOrCreate(
-                    ['id' => $n['id'] ?? null],
-                    [
-                        'id_agri_registro_pecuario' => $registro->id,
-                        'natalidad_mortalidad_id' => $n['natalidad_mortalidad_id'],
-                        'cantidad' => $n['cantidad'],
-                    ]
-                );
+            // ---- Natalidad ----
+            foreach ($request->input('natalidad', []) as $n) {
+                if (!empty($n['id'])) {
+                    AgriNatalidad::withTrashed()->updateOrCreate(
+                        ['id' => $n['id']],
+                        [
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'natalidad_mortalidad_id' => $n['natalidad_mortalidad_id'] ?? null,
+                            'cantidad' => $n['cantidad'] ?? null,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    $found = AgriNatalidad::withTrashed()
+                        ->where('id_agri_registro_pecuario', $registro->id)
+                        ->where('natalidad_mortalidad_id', $n['natalidad_mortalidad_id'] ?? null)
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) $found->restore();
+                        $found->update([
+                            'cantidad' => $n['cantidad'] ?? null,
+                        ]);
+                    } else {
+                        AgriNatalidad::create([
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'natalidad_mortalidad_id' => $n['natalidad_mortalidad_id'] ?? null,
+                            'cantidad' => $n['cantidad'] ?? null,
+                        ]);
+                    }
+                }
             }
 
-            foreach ($request->mortalidad as $m) {
-                AgriMortalidad::updateOrCreate(
-                    ['id' => $m['id'] ?? null],
-                    [
-                        'id_agri_registro_pecuario' => $registro->id,
-                        'id_agri_variedad_animal' => $m['id_agri_variedad_animal'],
-                        'cantidad' => $m['cantidad'],
-                    ]
-                );
+            // ---- Mortalidad ----
+            foreach ($request->input('mortalidad', []) as $m) {
+                if (!empty($m['id'])) {
+                    AgriMortalidad::withTrashed()->updateOrCreate(
+                        ['id' => $m['id']],
+                        [
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $m['id_agri_variedad_animal'] ?? null,
+                            'cantidad' => $m['cantidad'] ?? null,
+                            'deleted_at' => null
+                        ]
+                    );
+                } else {
+                    $found = AgriMortalidad::withTrashed()
+                        ->where('id_agri_registro_pecuario', $registro->id)
+                        ->where('id_agri_variedad_animal', $m['id_agri_variedad_animal'] ?? null)
+                        ->first();
+
+                    if ($found) {
+                        if ($found->trashed()) $found->restore();
+                        $found->update([
+                            'cantidad' => $m['cantidad'] ?? null,
+                        ]);
+                    } else {
+                        AgriMortalidad::create([
+                            'id_agri_registro_pecuario' => $registro->id,
+                            'id_agri_variedad_animal' => $m['id_agri_variedad_animal'] ?? null,
+                            'cantidad' => $m['cantidad'] ?? null,
+                        ]);
+                    }
+                }
             }
 
-            //Informe Técnico
+            // ---- Informe Técnico (one-to-one) ----
             if ($request->has('informe_tecnico')) {
-                $info = $request->informe_tecnico;
+                $info = $request->input('informe_tecnico');
                 InformeTecnico::updateOrCreate(
                     ['id_agri_registro_pecuario' => $registro->id],
                     [
-                        'informante' => $info['informante'],
+                        'informante' => $info['informante'] ?? null,
                         'email' => $info['email'] ?? null,
                         'telefono' => $info['telefono'] ?? null,
-                        'cargo' => $info['cargo'],
-                        'tecnico' => $info['tecnico'],
+                        'cargo' => $info['cargo'] ?? null,
+                        'tecnico' => $info['tecnico'] ?? null,
                         'observaciones' => $info['observaciones'] ?? null,
-                        'fecha' => $info['fecha'],
+                        'fecha' => $info['fecha'] ?? null,
                     ]
                 );
             }
@@ -426,7 +623,6 @@ class AgriRegistroPecuarioController extends Controller
             DB::commit();
 
             return response()->json(['message' => 'Registro pecuario actualizado correctamente.'], 200);
-
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return response()->json(['message' => 'Registro pecuario no encontrado.'], 404);

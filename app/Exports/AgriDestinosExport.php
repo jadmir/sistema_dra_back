@@ -3,38 +3,45 @@
 namespace App\Exports;
 
 use App\Models\AgriDestino;
-use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class AgriDestinosExport implements FromArray, WithHeadings, WithStyles, ShouldAutoSize
+class AgriDestinosExport implements FromCollection, WithHeadings, WithStyles, WithMapping, ShouldAutoSize
 {
-    protected $data;
+    protected $filters;
 
-    public function __construct()
+    public function __construct($filters = [])
     {
-        $this->data = AgriDestino::where('estado', true)
-            ->with('usuario')
-            ->get()
-            ->map(function ($registro) {
-                return [
-                    'id' => $registro->id,
-                    'nombre' => $registro->nombre,
-                    'ubicacion' => $registro->ubicacion,
-                    'descripcion' => $registro->descripcion,
-                    'Usuario' => $registro->usuario ? $registro->usuario->nombre : 'Sin usuario',
-                    'estado' => 'Activo',
-                    'created_at' => optional($registro->created_at)->format('Y-m-d H:i'),
-                ];
-            })
-            ->toArray();
+        $this->filters = $filters;
     }
 
-    public function array(): array
+    public function collection()
     {
-        return $this->data;
+        $query = AgriDestino::query();
+
+        // FILTRO POR SEARCH
+        if (!empty($this->filters['search'])) {
+            $search = trim($this->filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('ubicacion', 'like', "%{$search}%")
+                    ->orWhere('descripcion', 'like', "%{$search}%");
+            });
+        }
+
+        // FILTRO POR ESTADO
+        if (isset($this->filters['estado']) && $this->filters['estado'] !== null && $this->filters['estado'] !== '') {
+            $estado = filter_var($this->filters['estado'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (!is_null($estado)) {
+                $query->where('estado', $estado);
+            }
+        }
+
+        return $query->orderBy('id', 'desc')->get();
     }
 
     public function headings(): array
@@ -47,6 +54,19 @@ class AgriDestinosExport implements FromArray, WithHeadings, WithStyles, ShouldA
             'Usuario',
             'Estado',
             'Fecha de Creación',
+        ];
+    }
+
+    public function map($registro): array
+    {
+        return [
+            $registro->id,
+            $registro->nombre,
+            $registro->ubicacion,
+            $registro->descripcion,
+            $registro->usuario ? $registro->usuario->nombre : 'Sin usuario',
+            $registro->estado ? 'Activo' : 'Inactivo',
+            optional($registro->created_at)->format('d/m/Y H:i'),
         ];
     }
 
@@ -66,8 +86,8 @@ class AgriDestinosExport implements FromArray, WithHeadings, WithStyles, ShouldA
         $highestRow = $sheet->getHighestRow();
         $highestColumn = $sheet->getHighestColumn();
         $sheet->getStyle("A1:{$highestColumn}{$highestRow}")
-              ->getBorders()->getAllBorders()
-              ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            ->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
         return [];
     }

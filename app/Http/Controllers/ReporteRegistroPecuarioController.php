@@ -22,6 +22,7 @@ class ReporteRegistroPecuarioController extends Controller
                 ->join('agri_variedad_animal AS v', 'v.id', '=', 'a.variedad_id')
                 ->select('v.nombre AS variedad', 'a.total')
                 ->where('a.registro_pecuario_id', $id)
+                ->whereNull('a.deleted_at')
                 ->get();
 
             //Totales
@@ -34,13 +35,15 @@ class ReporteRegistroPecuarioController extends Controller
                 ->leftJoin('agri_destinos AS d', 'd.id', '=', 'pl.agri_destinos_id')
                 ->select('pl.*', 'd.nombre AS destino')
                 ->where('pl.registro_pecuario_id', $id)
+                ->whereNull('pl.deleted_at')
                 ->get();
 
-            //Saca de animales
+            //Saca vacuno descarte
             $sacas = DB::table('saca_vacuno_descarte AS s')
                 ->join('agri_variedad_animal AS v', 'v.id', '=', 's.id_agri_variedad_animal')
                 ->select('v.nombre AS variedad', 's.saca_unidad', 's.precio_venta', 's.peso_promedio_vivo')
                 ->where('s.id_agri_registro_pecuario', $id)
+                ->whereNull('s.deleted_at')
                 ->get();
 
             //Saca de reproductores
@@ -48,15 +51,17 @@ class ReporteRegistroPecuarioController extends Controller
                 ->join('agri_variedad_animal AS v', 'v.id', '=', 's.id_agri_variedad_animal')
                 ->select('v.nombre AS variedad', 's.saca_unidad', 's.precio_venta')
                 ->where('s.id_agri_registro_pecuario', $id)
+                ->whereNull('s.deleted_at')
                 ->get();
 
-      
+
 
             //Natalidad
             $natalidad = DB::table('agri_natalidad AS n')
                 ->join('agri_natalidad_mortalidad AS nm', 'nm.id', '=', 'n.natalidad_mortalidad_id')
                 ->select('nm.concepto', 'n.cantidad')
                 ->where('n.id_agri_registro_pecuario', $id)
+                ->whereNull('n.deleted_at')
                 ->get();
 
             //Mortalidad
@@ -64,6 +69,7 @@ class ReporteRegistroPecuarioController extends Controller
                 ->join('agri_variedad_animal AS v', 'v.id', '=', 'm.id_agri_variedad_animal')
                 ->select('v.nombre AS variedad', 'm.cantidad')
                 ->where('m.id_agri_registro_pecuario', $id)
+                ->whereNull('m.deleted_at')
                 ->get();
 
             //Informe técnico
@@ -96,7 +102,6 @@ class ReporteRegistroPecuarioController extends Controller
                 ->setPaper('a4', 'portrait');
 
             return $pdf->stream("reporte_registro_pecuario_{$id}.pdf");
-
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error al generar el reporte del registro pecuario.',

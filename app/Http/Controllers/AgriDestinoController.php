@@ -6,6 +6,7 @@ use App\Models\AgriDestino;
 use Illuminate\Http\Request;
 use App\Exports\AgriDestinosExport;
 use Maatwebsite\Excel\Facades\Excel;
+
 class AgriDestinoController extends Controller
 {
     /**
@@ -14,26 +15,33 @@ class AgriDestinoController extends Controller
     public function index(Request $request)
     {
         try {
-            //Permite personalizar la cantidad de registros por página (por defecto 10)
             $perPage = (int) $request->input('per_page', 10);
-            $destinos = AgriDestino::where('estado', true)
-                ->orderBy('id', 'desc')
-                ->paginate($perPage);
+            $search = $request->input('search');
+            $estado = $request->input('estado');
 
-            if($destinos->total() === 0){
-                return response()->json([
-                    'message' => 'No hay destinos activos',
-                    'data' => []
-                ], 200);
+            $query = AgriDestino::query();
+
+            if (!is_null($estado)) {
+                $query->where('estado', filter_var($estado, FILTER_VALIDATE_BOOLEAN));
             }
 
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nombre', 'LIKE', "%{$search}%")
+                        ->orWhere('ubicacion', 'LIKE', "%{$search}%")
+                        ->orWhere('descripcion', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $destinos = $query->orderBy('id', 'desc')->paginate($perPage);
+
             return response()->json([
-                'message' => 'Lista de destinos activos',
-            'meta' => [
-                'total' => $destinos->total(),
-                'current_page' => $destinos->currentPage(),
-                'last_page' => $destinos->lastPage(),
-            ],
+                'message' => 'Lista de destinos',
+                'meta' => [
+                    'total' => $destinos->total(),
+                    'current_page' => $destinos->currentPage(),
+                    'last_page' => $destinos->lastPage(),
+                ],
                 'data' => $destinos->items()
             ], 200);
         } catch (\Throwable $e) {
@@ -58,7 +66,7 @@ class AgriDestinoController extends Controller
         $validated = $request->validate([
             'nombre'     => 'required|string|max:150',
             'ubicacion'  => 'nullable|string|max:200',
-            'descripcion'=> 'nullable|string',
+            'descripcion' => 'nullable|string',
         ], $mensajes);
 
         try {
@@ -148,27 +156,27 @@ class AgriDestinoController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy($id, Request $request)
     {
         try {
             $destino = AgriDestino::find($id);
 
             if (!$destino) {
-                return response()->json([
-                    'message' => 'Destino no encontrado.'
-                ], 404);
+                return response()->json(['message' => 'Destino no encontrado.'], 404);
             }
 
-            $destino->estado = false;
-
-            $destino->save();
+            $nuevoEstado = $request->boolean('estado', false);
+            $destino->update(['estado' => $nuevoEstado]);
 
             return response()->json([
-                'message' => 'Destino desactivado correctamente.'
+                'message' => $nuevoEstado
+                    ? 'Destino activado correctamente.'
+                    : 'Destino desactivado correctamente.'
             ], 200);
         } catch (\Throwable $e) {
             return response()->json([
-                'message' => 'No se pudo desactivar el destino.'
+                'message' => 'Error al actualizar el estado del destino.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -192,8 +200,8 @@ class AgriDestinoController extends Controller
             if ($term !== '') {
                 $query->where(function ($q) use ($term) {
                     $q->where('nombre', 'like', "%{$term}%")
-                      ->orWhere('ubicacion', 'like', "%{$term}%")
-                      ->orWhere('descripcion', 'like', "%{$term}%");
+                        ->orWhere('ubicacion', 'like', "%{$term}%")
+                        ->orWhere('descripcion', 'like', "%{$term}%");
                 });
             }
 
@@ -225,8 +233,12 @@ class AgriDestinoController extends Controller
         }
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
-        return Excel::download(new AgriDestinosExport, 'Reporte_destinos.xlsx');
+        $filters = [
+            'search' => $request->input('search'),
+            'estado' => $request->input('estado'),
+        ];
+        return Excel::download(new AgriDestinosExport($filters), 'Reporte_destinos.xlsx');
     }
 }
