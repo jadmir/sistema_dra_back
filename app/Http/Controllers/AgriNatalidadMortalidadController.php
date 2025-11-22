@@ -171,7 +171,6 @@ class AgriNatalidadMortalidadController extends Controller
                 return response()->json(['message' => 'Registro no encontrado.'], 404);
             }
 
-            // Obtener el nuevo estado que envía el front (true o false)
             $nuevoEstado = $request->boolean('estado', false);
 
             $item->update(['estado' => $nuevoEstado]);

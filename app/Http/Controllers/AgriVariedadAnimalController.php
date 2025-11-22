@@ -19,7 +19,6 @@ class AgriVariedadAnimalController extends Controller
 
         $query = AgriVariedadAnimal::query();
 
-        // Búsqueda por nombre/descripcion
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
             $query->where(function ($q) use ($search) {
@@ -28,9 +27,7 @@ class AgriVariedadAnimalController extends Controller
             });
         }
 
-        // Filtro por estado (true/false). Si no viene, devuelve todos.
         if ($request->has('estado') && $request->input('estado') !== '') {
-            // Permitir "true", "false", 1, 0, etc.
             $estado = filter_var($request->input('estado'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if (!is_null($estado)) {
                 $query->where('estado', $estado);

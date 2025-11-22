@@ -45,12 +45,9 @@ class AgriRegistroPecuarioController extends Controller
 
         $registros = $query->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page);
 
-        //MAPEAR Y AÑADIR "editable" A CADA REGISTRO
         $items = collect($registros->items())->map(function ($r) {
-            // created_at ya es Carbon (porque es Eloquent)
             $editable = $r->created_at->diffInDays(now()) <= 30;
 
-            // convertimos el modelo a array y añadimos editable
             $arr = $r->toArray();
             $arr['editable'] = $editable;
 
@@ -269,7 +266,6 @@ class AgriRegistroPecuarioController extends Controller
                 'informeTecnico'
             ])->findOrFail($id);
 
-            //editar (30 días)
             $editable = $registro->created_at->diffInDays(now()) <= 30;
 
             return response()->json([
@@ -309,7 +305,6 @@ class AgriRegistroPecuarioController extends Controller
                 ], 403);
             }
 
-            //Actualizar tabla principal
             $registro->update($request->only([
                 'codigo_establo',
                 'ubigeo',
@@ -324,7 +319,6 @@ class AgriRegistroPecuarioController extends Controller
                 'ruc'
             ]));
 
-            // Eliminacion (SoftDelete)
             $idsAnimales = collect($request->input('animales', []))->pluck('id')->filter()->all();
             $registro->animales()->whereNotIn('id', $idsAnimales)->delete();
 
@@ -347,7 +341,6 @@ class AgriRegistroPecuarioController extends Controller
             $totalAnimales = 0;
 
             foreach ($request->input('animales', []) as $a) {
-                // si viene id -> actualizar/restore por id
                 if (!empty($a['id'])) {
                     AgriAnimales::withTrashed()->updateOrCreate(
                         ['id' => $a['id']],
@@ -361,7 +354,6 @@ class AgriRegistroPecuarioController extends Controller
                         ]
                     );
                 } else {
-                    // buscar trashed que coincida en claves
                     $found = AgriAnimales::withTrashed()
                         ->where('registro_pecuario_id', $registro->id)
                         ->where('variedad_id', $a['variedad_id'])
@@ -394,7 +386,7 @@ class AgriRegistroPecuarioController extends Controller
                 ['total_animal' => $totalAnimales]
             );
 
-            // ---- Leche Fresca y Productos de Leche (clave sugerida: registro + agri_destinos_id) ----
+            //Leche Fresca y Productos de Leche
             $totalLeche = 0;
             $lecheFresca = LecheFresca::updateOrCreate(
                 ['registro_pecuario_id' => $registro->id],
@@ -447,7 +439,7 @@ class AgriRegistroPecuarioController extends Controller
 
             $lecheFresca->update(['total_leche' => $totalLeche]);
 
-            // ---- Saca Reproducción (clave: registro + id_agri_variedad_animal) ----
+            //Saca Reproducción
             foreach ($request->input('saca_reproduccion', []) as $sr) {
                 if (!empty($sr['id'])) {
                     SacaReproduccion::withTrashed()->updateOrCreate(
@@ -486,7 +478,7 @@ class AgriRegistroPecuarioController extends Controller
                 }
             }
 
-            // ---- Saca Vacuno Descarte ----
+            //Saca Vacuno Descarte
             foreach ($request->input('saca_vacuno_descarte', []) as $sd) {
                 if (!empty($sd['id'])) {
                     SacaVacunoDescarte::withTrashed()->updateOrCreate(
@@ -528,7 +520,7 @@ class AgriRegistroPecuarioController extends Controller
                 }
             }
 
-            // ---- Recalcular total saca y guardar ----
+            //Recalcular total saca
             $totalSaca = collect($request->input('saca_reproduccion', []))->sum('saca_unidad')
                 + collect($request->input('saca_vacuno_descarte', []))->sum('saca_unidad');
 
@@ -537,7 +529,7 @@ class AgriRegistroPecuarioController extends Controller
                 ['total_leche' => $totalSaca]
             );
 
-            // ---- Natalidad ----
+            //Natalidad
             foreach ($request->input('natalidad', []) as $n) {
                 if (!empty($n['id'])) {
                     AgriNatalidad::withTrashed()->updateOrCreate(
@@ -570,7 +562,7 @@ class AgriRegistroPecuarioController extends Controller
                 }
             }
 
-            // ---- Mortalidad ----
+            //Mortalidad
             foreach ($request->input('mortalidad', []) as $m) {
                 if (!empty($m['id'])) {
                     AgriMortalidad::withTrashed()->updateOrCreate(
@@ -603,7 +595,7 @@ class AgriRegistroPecuarioController extends Controller
                 }
             }
 
-            // ---- Informe Técnico (one-to-one) ----
+            //Informe Técnico
             if ($request->has('informe_tecnico')) {
                 $info = $request->input('informe_tecnico');
                 InformeTecnico::updateOrCreate(

@@ -93,7 +93,6 @@ class ReporteRegistroPecuarioController extends Controller
                 'fecha'             => now()->format('d/m/Y H:i'),
             ];
 
-            //Renderizar vista PDF o vista web
             if (request()->has('view')) {
                 return view('reportes.registro_pecuario', $data);
             }
