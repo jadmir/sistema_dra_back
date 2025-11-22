@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AgriAnimales extends Model
 {
-     use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'agri_animales';
 
@@ -33,5 +34,4 @@ class AgriAnimales extends Model
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
-
 }

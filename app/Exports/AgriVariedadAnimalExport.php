@@ -12,11 +12,35 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class AgriVariedadAnimalExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
 {
+
+    protected $filters;
+
+    public function __construct($filters = [])
+    {
+        $this->filters = $filters;
+    }
+
     public function collection()
     {
-        return AgriVariedadAnimal::where('estado', true)
-            ->with('usuario')
-            ->get();
+        $query = AgriVariedadAnimal::query();
+
+        //Filtros
+        if (!empty($this->filters['search'])) {
+            $search = trim($this->filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('descripcion', 'like', "%{$search}%");
+            });
+        }
+
+        if (isset($this->filters['estado']) && $this->filters['estado'] !== '') {
+            $estado = filter_var($this->filters['estado'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (!is_null($estado)) {
+                $query->where('estado', $estado);
+            }
+        }
+
+        return $query->orderBy('id', 'desc')->get();
     }
 
     public function headings(): array
@@ -27,7 +51,7 @@ class AgriVariedadAnimalExport implements FromCollection, WithHeadings, WithMapp
             'Descripción',
             'Usuario',
             'Estado',
-            'Fecha de Creación',
+            'Fecha de creación',
         ];
     }
 
@@ -39,7 +63,7 @@ class AgriVariedadAnimalExport implements FromCollection, WithHeadings, WithMapp
             $registro->descripcion,
             $registro->usuario ? $registro->usuario->nombre : 'Sin usuario',
             $registro->estado ? 'Activo' : 'Inactivo',
-            optional($registro->created_at)->format('Y-m-d H:i:s'),
+            optional($registro->created_at)->format('d/m/Y H:i'),
         ];
     }
 

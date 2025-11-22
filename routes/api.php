@@ -17,6 +17,9 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\ReporteCultivosController;
 use App\Http\Controllers\SubGrupoController;
 use App\Http\Controllers\SubSectorController;
+use App\Http\Controllers\ReporteRegistroPecuarioController;
+use App\Http\Controllers\AgriRegistroController;
+use App\Http\Controllers\ReporteAgricolaController;
 use App\Http\Controllers\Api\PreGeoUbicacionController;
 use App\Http\Controllers\Api\PreCategoriaController;
 use App\Http\Controllers\Api\PreProductoController;
@@ -155,9 +158,11 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     Route::get('exportar-destinos', [AgriDestinoController::class, 'exportExcel']);
     Route::get('exportar-variedad-animal', [AgriVariedadAnimalController::class, 'exportExcel']);
 
-
+    Route::apiResource('registros', AgriRegistroController::class);
 
 });
+
+Route::get('registros-agricola/export', [ReporteAgricolaController::class, 'exportExcel']);
 
 // PRECIOS - Sistema de Encuestas de Precios en Mercados
 Route::prefix('precios')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->group(function () {

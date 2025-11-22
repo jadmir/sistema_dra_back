@@ -15,7 +15,7 @@ class AgriDestino extends Model
         'nombre',
         'ubicacion',
         'descripcion',
-        'activo',
+        'estado',
         'usuario_id'
     ];
 
@@ -29,7 +29,7 @@ class AgriDestino extends Model
     {
         return $this->hasMany(AgriProductoLeche::class, 'agri_destinos_id');
     }
-    
+
     //relacion con el usuario
     public function usuario()
     {

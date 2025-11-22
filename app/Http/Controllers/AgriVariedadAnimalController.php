@@ -14,16 +14,28 @@ class AgriVariedadAnimalController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->get('per_page', 10);
+        $perPage = (int) $request->get('per_page', 10);
+        $perPage = max(1, min(100, $perPage));
+
         $query = AgriVariedadAnimal::query();
 
-        if ($request->has('search')) {
-            $search = trim($request->search);
-            $query->where('nombre', 'like', "%{$search}%")
-                  ->orWhere('descripcion', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('descripcion', 'like', "%{$search}%");
+            });
         }
 
-         $variedades = $query->orderBy('id', 'desc')->paginate($perPage);
+        if ($request->has('estado') && $request->input('estado') !== '') {
+            $estado = filter_var($request->input('estado'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (!is_null($estado)) {
+                $query->where('estado', $estado);
+            }
+        }
+
+        $query->orderBy('id', 'desc');
+        $variedades = $query->paginate($perPage);
 
         return response()->json([
             'message' => 'Listado de variedades animales.',
@@ -52,12 +64,10 @@ class AgriVariedadAnimalController extends Controller
         ]);
 
         try {
-            $user = $request->user();
-            if ($user) {
-                $validated['usuario_id'] = $user->id;
-            }
-            
             $validated['estado'] = $validated['estado'] ?? true;
+            if ($request->user()) {
+                $validated['usuario_id'] = $request->user()->id;
+            }
 
             $variedadAnimal = AgriVariedadAnimal::create($validated);
 
@@ -65,7 +75,6 @@ class AgriVariedadAnimalController extends Controller
                 'message' => 'Variedad animal creada correctamente.',
                 'data' => $variedadAnimal
             ], 201);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'No se pudo crear la variedad animal.',
@@ -79,13 +88,11 @@ class AgriVariedadAnimalController extends Controller
      */
     public function show(string $id)
     {
-        $variedadAnimal = AgriVariedadAnimal::find($id);
+        $variedadAnimal = AgriVariedadAnimal::with('usuario')->find($id);
 
         if (!$variedadAnimal) {
             return response()->json(['message' => 'Variedad animal no encontrada.'], 404);
         }
-
-        $variedadAnimal->loadMissing('usuario');
 
         return response()->json([
             'message' => 'Variedad animal encontrada.',
@@ -106,14 +113,13 @@ class AgriVariedadAnimalController extends Controller
             }
 
             $validated = $request->validate([
-                'nombre' => 'required|string|max:150|unique:agri_variedad_animal,nombre',
+                'nombre' => 'required|string|max:150|unique:agri_variedad_animal,nombre,' . $id,
                 'descripcion' => 'nullable|string',
                 'estado' => 'required|boolean',
             ]);
 
-            $user = $request->user();
-            if ($user) {
-                $validated['usuario_id'] = $user->id;
+            if ($request->user()) {
+                $validated['usuario_id'] = $request->user()->id;
             }
 
             $variedadAnimal->update($validated);
@@ -122,7 +128,6 @@ class AgriVariedadAnimalController extends Controller
                 'message' => 'Variedad animal actualizada exitosamente.',
                 'data' => $variedadAnimal
             ], 200);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error al actualizar la variedad animal.',
@@ -134,7 +139,7 @@ class AgriVariedadAnimalController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(string $id,  Request $request)
     {
         try {
             $variedadAnimal = AgriVariedadAnimal::find($id);
@@ -143,12 +148,14 @@ class AgriVariedadAnimalController extends Controller
                 return response()->json(['message' => 'Variedad animal no encontrada.'], 404);
             }
 
-            $variedadAnimal->update(['estado' => false]);
+            $nuevoEstado = $request->boolean('estado', false);
+            $variedadAnimal->update(['estado' => $nuevoEstado]);
 
             return response()->json([
-                'message' => 'Variedad animal desactivada correctamente.'
+                'message' => $nuevoEstado
+                    ? 'Variedad animal activada correctamente.'
+                    : 'Variedad animal desactivada correctamente.'
             ], 200);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error al eliminar la variedad animal.',
@@ -169,7 +176,7 @@ class AgriVariedadAnimalController extends Controller
             if ($term !== '') {
                 $query->where(function ($q) use ($term) {
                     $q->where('nombre', 'like', "%{$term}%")
-                    ->orWhere('descripcion', 'like', "%{$term}%");
+                        ->orWhere('descripcion', 'like', "%{$term}%");
                 });
             }
 
@@ -184,7 +191,6 @@ class AgriVariedadAnimalController extends Controller
                 ],
                 'data' => $results->items()
             ], 200);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Error al realizar la búsqueda.',
@@ -193,8 +199,12 @@ class AgriVariedadAnimalController extends Controller
         }
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
-        return Excel::download(new AgriVariedadAnimalExport, 'Reporte_variedad_animal.xlsx');
+        $filters = [
+            'search' => $request->input('search'),
+            'estado' => $request->input('estado'),
+        ];
+        return Excel::download(new AgriVariedadAnimalExport($filters), 'Reporte_Variedad_Animal.xlsx');
     }
 }
