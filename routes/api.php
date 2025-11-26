@@ -30,7 +30,7 @@ use App\Http\Controllers\Api\PreReporteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/prueba', fn () => response()->json(['message' => 'API is working']));
+Route::get('/prueba', fn() => response()->json(['message' => 'API is working']));
 
 // Público (sin JWT)
 Route::post('/login', [AuthController::class, 'login']);
@@ -84,6 +84,14 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     Route::put('saca_clases/{id}', [AgriSacaClaseController::class, 'update']);
     Route::delete('saca_clases/{id}', [AgriSacaClaseController::class, 'destroy']);
 
+    // VARIEDAD ANIMAL
+    Route::get('agri-variedad-animales/search', [AgriVariedadAnimalController::class, 'search']);
+    Route::get('agri-variedad-animales', [AgriVariedadAnimalController::class, 'index']);
+    Route::post('agri-variedad-animales', [AgriVariedadAnimalController::class, 'store']);
+    Route::get('agri-variedad-animales/{id}', [AgriVariedadAnimalController::class, 'show']);
+    Route::put('agri-variedad-animales/{id}', [AgriVariedadAnimalController::class, 'update']);
+    Route::delete('agri-variedad-animales/{id}', [AgriVariedadAnimalController::class, 'destroy']);
+
     // VARIEDADES
     Route::get('variedades/search', [AgriVariedadController::class, 'search']);
     Route::get('variedades', [AgriVariedadController::class, 'index']);
@@ -101,12 +109,15 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     Route::delete('agri_animales/{id}', [AgriAnimalController::class, 'destroy']);
 
     // NATALIDAD-MORTALIDAD
-    Route::get('natalidad-mortalidad/search', [AgriNatalidadMortalidadController::class, 'search']);
-    Route::get('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'index']);
-    Route::post('natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'store']);
-    Route::get('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'show']);
-    Route::put('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'update']);
-    Route::delete('natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'destroy']);
+    Route::get('agri-natalidad-mortalidad/search', [AgriNatalidadMortalidadController::class, 'search']);
+    Route::get('agri-natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'index']);
+    Route::post('agri-natalidad-mortalidad', [AgriNatalidadMortalidadController::class, 'store']);
+    Route::get('agri-natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'show']);
+    Route::put('agri-natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'update']);
+    Route::delete('agri-natalidad-mortalidad/{id}', [AgriNatalidadMortalidadController::class, 'destroy']);
+
+    // REGISTRO-PECUARIO
+    Route::apiResource('agri-registros-pecuarios', AgriRegistroPecuarioController::class);
 
     // DESTINOS
     Route::get('agri-destinos/search', [AgriDestinoController::class, 'search']);
@@ -159,7 +170,6 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     Route::get('exportar-variedad-animal', [AgriVariedadAnimalController::class, 'exportExcel']);
 
     Route::apiResource('registros', AgriRegistroController::class);
-
 });
 
 Route::get('registros-agricola/export', [ReporteAgricolaController::class, 'exportExcel']);
@@ -184,12 +194,9 @@ Route::prefix('precios')->middleware(['auth.jwt', 'role:Administrador,Técnico']
     Route::post('reportes/generar-comparativo', [PreReporteController::class, 'generarComparativo']);
     Route::get('reportes/resumen-muestras', [PreReporteController::class, 'resumenMuestras']);
     Route::get('reportes/historico/{producto_id}', [PreReporteController::class, 'historico']);
-    
+
     // Reportes de Productividad de Encuestadores
     Route::get('reportes/encuestadores/productividad', [PreReporteController::class, 'productividadEncuestadores']);
     Route::get('reportes/encuestadores/por-dia', [PreReporteController::class, 'encuestadoresPorDia']);
     Route::get('reportes/encuestadores/por-mes', [PreReporteController::class, 'encuestadoresPorMes']);
 });
-
-
-
