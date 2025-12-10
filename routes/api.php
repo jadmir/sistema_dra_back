@@ -19,7 +19,14 @@ use App\Http\Controllers\SubGrupoController;
 use App\Http\Controllers\SubSectorController;
 use App\Http\Controllers\ReporteRegistroPecuarioController;
 use App\Http\Controllers\AgriRegistroController;
+use App\Http\Controllers\AgriRegionController;
+use App\Http\Controllers\AgriProvinciaController;
+use App\Http\Controllers\AgriDistritoController;
+use App\Http\Controllers\AgriVariableCatalogoController;
+use App\Http\Controllers\AgriCultivoCatalogoController;
+use App\Http\Controllers\AgriUnidadController;
 use App\Http\Controllers\ReporteAgricolaController;
+use App\Http\Controllers\AgriGeoController;
 use App\Http\Controllers\Api\PreGeoUbicacionController;
 use App\Http\Controllers\Api\PreCategoriaController;
 use App\Http\Controllers\Api\PreProductoController;
@@ -122,6 +129,50 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     // DESTINOS
     Route::get('agri-destinos/search', [AgriDestinoController::class, 'search']);
     Route::apiResource('destinos', AgriDestinoController::class);
+
+    // REGISTRO-AGRICOLA
+    Route::apiResource('registros', AgriRegistroController::class);
+
+    Route::get('agri-regiones', [AgriRegionController::class, 'index']);
+    Route::get('agri-regiones/all', [AgriRegionController::class, 'all']);
+    Route::post('agri-regiones', [AgriRegionController::class, 'store']);
+    Route::put('agri-regiones/{id}', [AgriRegionController::class, 'update']);
+    Route::delete('agri-regiones/{id}', [AgriRegionController::class, 'destroy']);
+
+    Route::get('agri-provincias', [AgriProvinciaController::class, 'index']);
+    Route::get('agri-provincias/all', [AgriProvinciaController::class, 'all']);
+    Route::post('agri-provincias', [AgriProvinciaController::class, 'store']);
+    Route::put('agri-provincias/{id}', [AgriProvinciaController::class, 'update']);
+    Route::delete('agri-provincias/{id}', [AgriProvinciaController::class, 'destroy']);
+
+    Route::get('agri-distritos', [AgriDistritoController::class, 'index']);
+    Route::get('agri-distritos/all', [AgriDistritoController::class, 'all']);
+    Route::post('agri-distritos', [AgriDistritoController::class, 'store']);
+    Route::put('agri-distritos/{id}', [AgriDistritoController::class, 'update']);
+    Route::delete('agri-distritos/{id}', [AgriDistritoController::class, 'destroy']);
+
+    Route::get('agri-cultivo-catalogos', [AgriCultivoCatalogoController::class, 'index']);
+    Route::get('agri-cultivo-catalogos/all', [AgriCultivoCatalogoController::class, 'all']);
+    Route::post('agri-cultivo-catalogos', [AgriCultivoCatalogoController::class, 'store']);
+    Route::put('agri-cultivo-catalogos/{id}', [AgriCultivoCatalogoController::class, 'update']);
+    Route::delete('agri-cultivo-catalogos/{id}', [AgriCultivoCatalogoController::class, 'destroy']);
+
+    Route::get('agri-variable-catalogos', [AgriVariableCatalogoController::class, 'index']);
+    Route::get('agri-variable-catalogos/all', [AgriVariableCatalogoController::class, 'all']);
+    Route::post('agri-variable-catalogos', [AgriVariableCatalogoController::class, 'store']);
+    Route::put('agri-variable-catalogos/{id}', [AgriVariableCatalogoController::class, 'update']);
+    Route::delete('agri-variable-catalogos/{id}', [AgriVariableCatalogoController::class, 'destroy']);
+
+    Route::get('agri-unidades', [AgriUnidadController::class, 'index']);
+    Route::get('agri-unidades/all', [AgriUnidadController::class, 'all']);
+    Route::post('agri-unidades', [AgriUnidadController::class, 'store']);
+    Route::put('agri-unidades/{id}', [AgriUnidadController::class, 'update']);
+    Route::delete('agri-unidades/{id}', [AgriUnidadController::class, 'destroy']);
+
+    Route::get('agri-provincias/{region_id}', [AgriGeoController::class, 'provincias']);
+    Route::get('agri-distritos/{provincia_id}', [AgriGeoController::class, 'distritos']);
+
+    Route::apiResource('agri-variables', AgriVariableCatalogoController::class);
 });
 
 // CULTIVOS - Solo Administrador y Técnico (consulta y modificación)
@@ -169,10 +220,13 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
     Route::get('exportar-destinos', [AgriDestinoController::class, 'exportExcel']);
     Route::get('exportar-variedad-animal', [AgriVariedadAnimalController::class, 'exportExcel']);
 
-    Route::apiResource('registros', AgriRegistroController::class);
+    Route::get('registros-agricola/export', [ReporteAgricolaController::class, 'exportExcel']);
+    Route::get('registros-agricola/export-periodo', [ReporteAgricolaController::class, 'exportPeriodo']);
+    Route::get('registros-agricola/export-campania', [AgriRegistroController::class, 'exportCampania']);
+    Route::get('/agri-registros/export-detalle', [AgriRegistroController::class, 'exportDetalle']);
 });
 
-Route::get('registros-agricola/export', [ReporteAgricolaController::class, 'exportExcel']);
+
 
 // PRECIOS - Sistema de Encuestas de Precios en Mercados
 Route::prefix('precios')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->group(function () {
