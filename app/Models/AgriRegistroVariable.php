@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AgriRegistroVariable extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'agri_registro_variables';
 
@@ -38,6 +39,11 @@ class AgriRegistroVariable extends Model
     public function variableCatalogo()
     {
         return $this->belongsTo(AgriVariableCatalogo::class, 'variable_id');
+    }
+
+    public function unidad()
+    {
+        return $this->belongsTo(AgriUnidad::class, 'unidad_id');
     }
 
     public function usuario()

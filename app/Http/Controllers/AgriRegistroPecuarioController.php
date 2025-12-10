@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
 
 /* Models */
 use App\Models\LecheFresca;
@@ -19,6 +20,7 @@ use App\Models\InformeTecnico;
 use App\Models\AgriAnimales;
 use App\Models\AnimalTotal;
 use App\Models\AgriSacaTotal;
+use App\Filters\RegistroPecuarioFilter;
 
 class AgriRegistroPecuarioController extends Controller
 {
@@ -30,37 +32,32 @@ class AgriRegistroPecuarioController extends Controller
         $perPage = $request->input('per_page', 10);
         $page = $request->input('page', 1);
 
-        $query = AgriRegistroPecuario::with([
-            'animales.variedad',
-            'animalTotal',
-            'productosLeche.destino',
-            'lecheFresca',
-            'sacaReproduccion.variedad',
-            'sacaVacunoDescarte.variedad',
-            'sacaTotal',
-            'natalidad.natalidadMortalidad',
-            'mortalidad.variedad',
-            'informeTecnico'
-        ]);
+        // Aplicar filtros
+        $query = (new RegistroPecuarioFilter($request))->apply();
 
-        $registros = $query->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page);
+        // Paginacion
+        $registros = $query->orderBy('id', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($registros->items())->map(function ($r) {
-            $editable = $r->created_at->diffInDays(now()) <= 30;
-
-            $arr = $r->toArray();
-            $arr['editable'] = $editable;
-
-            return $arr;
+        $items = $registros->getCollection()->map(function ($r) {
+            return [
+                'id' => $r->id,
+                'nombre_establo' => $r->nombre_establo,
+                'distrito' => $r->distrito,
+                'region' => $r->region,
+                'provincia' => $r->provincia,
+                'mes_de_referencia' => $r->mes_de_referencia,
+                'anio' => $r->anio,
+                'variedades' => $r->animales->map(fn($a) => $a->variedad->nombre)->unique()->join(', '),
+                'total_animales' => $r->animalTotal->total_animal ?? 0,
+                'created_at' => $r->created_at->format('Y-m-d'),
+                'editable' => $r->created_at->diffInDays(now()) <= 30,
+            ];
         });
 
-        return response()->json([
-            'data' => $items,
-            'current_page' => $registros->currentPage(),
-            'last_page' => $registros->lastPage(),
-            'per_page' => $registros->perPage(),
-            'total' => $registros->total(),
-        ]);
+        $registros->setCollection($items);
+
+        return response()->json($registros);
     }
 
     /**
@@ -73,17 +70,25 @@ class AgriRegistroPecuarioController extends Controller
         try {
             //Validación
             $validated = $request->validate([
-                'codigo_establo' => 'nullable|string|max:200',
-                'ubigeo' => 'nullable|string|max:100',
+                'codigo_establo' => 'required|string|max:200',
+                'ubigeo' => 'required|string|max:100',
                 'mes_de_referencia' => 'required|string|max:250',
-                'anio' => 'required|digits:4',
+                'anio' => 'required|digits:4|integer|min:2000|max:' . (date('Y') + 1),
                 'region' => 'required|string|max:100',
                 'provincia' => 'required|string|max:100',
                 'distrito' => 'required|string|max:100',
                 'nombre_establo' => 'required|string|max:250',
                 'producto_razon_social' => 'required|string|max:250',
                 'direccion' => 'nullable|string|max:100',
-                'ruc' => 'nullable|string|max:100',
+                'ruc' => 'nullable|string|min:11|max:11',
+
+                'informe_tecnico.informante' => 'required|string|max:250',
+                'informe_tecnico.email' => 'nullable|email|max:250',
+                'informe_tecnico.telefono' => 'required|string|max:20',
+                'informe_tecnico.cargo' => 'required|string|max:250',
+                'informe_tecnico.tecnico' => 'required|string|max:250',
+                'informe_tecnico.observaciones' => 'nullable|string',
+                'informe_tecnico.fecha' => 'required|date',
             ]);
 
             $registro = AgriRegistroPecuario::create($validated);

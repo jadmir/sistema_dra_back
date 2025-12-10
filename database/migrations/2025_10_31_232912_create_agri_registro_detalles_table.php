@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('cultivo_id')->constrained('agri_cultivo_catalogos');
             $table->foreignId('usuario_id')->constrained('usuarios');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -84,14 +84,37 @@
     .tabla-grande th {
         border: 1px solid #000;
     }
-    
 </style>
 </head>
 <body>
 
-    <!-- Títulos principales -->
-    <div class="titulo-principal">ESTABLO LECHERO</div>
-    <div class="subtitulo">FORMULARIO DE REGISTRO PRODUCTIVO</div>
+    <!--titulo principal -->
+     <table width="100%" style="border-bottom: 2px solid #4a4a4a; margin-bottom: 10px;">
+    <tr>
+        <!--logo -->
+        <td width="20%" align="center" style="padding: 5px;">
+            <div style="width:70px; height:70px; border:2px solid #999; margin:auto;"></div>
+        </td>
+
+        <!--titulo -->
+        <td width="60%" align="center" style="padding: 5px;">
+            <div style="font-size: 16px; font-weight: bold; text-transform: uppercase;">
+                Ministerio de Desarrollo Agrario y Riego
+            </div>
+            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase;">
+                Dirección Regional de Agricultura
+            </div>
+            <div class="titulo-principal">ESTABLO LECHERO</div>
+            <div class="subtitulo">FORMULARIO DE REGISTRO PRODUCTIVO</div>
+        </td>
+
+        <td width="20%" align="right" style="font-size: 12px; padding: 5px;">
+            Fecha: {{ now()->format('d/m/Y') }}<br>
+            Hora: {{ now()->format('H:i') }}
+        </td>
+    </tr>
+</table>
+
 
     <table class="fila-cuadros">
     <tr>

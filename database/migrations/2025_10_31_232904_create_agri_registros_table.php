@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('agri_registros', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('region_id')->constrained('agri_regiones');
+            $table->foreignId('provincia_id')->constrained('agri_provincias');
             $table->foreignId('distrito_id')->constrained('agri_distritos');
             $table->year('anio');
             $table->text('observacion')->nullable();

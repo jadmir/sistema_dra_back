@@ -3,47 +3,104 @@
 namespace App\Http\Controllers;
 
 use App\Models\AgriProvincia;
+use App\Models\AgriRegion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AgriProvinciaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    // LISTAR PROVINCIAS CON BÚSQUEDA Y PAGINACIÓN
+    public function index(Request $request)
     {
-        //
+        $perPage = (int) $request->input('per_page', 10);
+        $search  = $request->input('search');
+
+        $query = AgriProvincia::with('region');
+
+        if (!empty($search)) {
+            $query->where('nombre', 'LIKE', "%{$search}%");
+        }
+
+        $provincias = $query->orderBy('id', 'desc')->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $provincias
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // LISTAR TODAS LAS PROVINCIAS ACTIVAS
+    public function all()
+    {
+        try {
+            $provincias = AgriProvincia::where('estado', 1)
+                ->orderBy('nombre', 'asc')
+                ->get(['id', 'nombre', 'region_id']);
+
+            return response()->json($provincias);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar provincias',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nombre'    => 'required|string|max:255',
+            'region_id' => 'required|exists:agri_regiones,id',
+        ]);
+
+        $provincia = AgriProvincia::create([
+            'nombre'     => $request->nombre,
+            'region_id'  => $request->region_id,
+            'estado'     => 1,
+            'usuario_id' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $provincia
+        ]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(AgriProvincia $agriProvincia)
+    public function update(Request $request, $id)
     {
-        //
+        $request->validate([
+            'nombre'    => 'required|string|max:255',
+            'region_id' => 'required|exists:agri_regiones,id',
+        ]);
+
+        $provincia = AgriProvincia::findOrFail($id);
+
+        $provincia->update([
+            'nombre'     => $request->nombre,
+            'region_id'  => $request->region_id,
+            'estado'     => 1,
+            'usuario_id' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $provincia
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, AgriProvincia $agriProvincia)
+    public function destroy($id)
     {
-        //
-    }
+        $provincia = AgriProvincia::findOrFail($id);
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(AgriProvincia $agriProvincia)
-    {
-        //
+        $provincia->update([
+            'estado'     => 0,
+            'usuario_id' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Provincia desactivada correctamente.'
+        ]);
     }
 }
