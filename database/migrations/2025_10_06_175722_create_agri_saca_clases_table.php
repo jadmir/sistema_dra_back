@@ -15,10 +15,9 @@ return new class extends Migration
         $table->id();
         $table->string('nombre', 150);
         $table->text('descripcion')->nullable();
-        $table->string('estado', 10)->default('activo');
-        $table->foreignId('usuario_id')->constrained('usuarios');
+        $table->string('estado', 10)->default('ACTIVO');
+        $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete();
         $table->timestamps();
-        $table->softDeletes();
     });
     }
 

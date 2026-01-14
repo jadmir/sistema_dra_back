@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('agri_natalidad_mortalidad', function (Blueprint $table) {
+        Schema::create('agri_productos', function (Blueprint $table) {
             $table->id();
-            $table->string('concepto', 100);
-            $table->text('observaciones')->nullable();
-            $table->foreignId('usuario_id')->constrained('usuarios');
+            $table->string('nombre', 150)->unique();
+            $table->text('descripcion')->nullable();
             $table->boolean('estado')->default(true);
+            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->nullOnDelete();
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('agri_natalidad_mortalidad');
+        Schema::dropIfExists('agri_productos');
     }
 };

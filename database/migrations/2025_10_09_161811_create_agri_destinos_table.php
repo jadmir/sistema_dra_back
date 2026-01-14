@@ -16,10 +16,9 @@ return new class extends Migration
             $table->string('nombre', 100);
             $table->string('ubicacion', 200)->nullable();
             $table->text('descripcion')->nullable();
-            $table->boolean('activo')->default(true);
-            $table->foreignId('usuario_id')->constrained('usuarios')->onDelete('cascade');
+            $table->boolean('estado')->default(true);
+            $table->foreignId('usuario_id')->constrained('usuarios');
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

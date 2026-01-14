@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('agri_natalidad_mortalidad', function (Blueprint $table) {
+        Schema::create('saca_reproduccion', function (Blueprint $table) {
             $table->id();
-            $table->string('concepto', 100);
-            $table->text('observaciones')->nullable();
+            $table->string('saca_unidad', 100)->nullable();
+            $table->decimal('precio_venta', 18, 2)->nullable();
+            $table->foreignId('id_agri_registro_pecuario')->constrained('agri_registro_pecuarios');
+            $table->foreignId('id_agri_variedad_animal')->constrained('agri_variedad_animal');
             $table->foreignId('usuario_id')->constrained('usuarios');
-            $table->boolean('estado')->default(true);
             $table->timestamps();
         });
     }
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('agri_natalidad_mortalidad');
+        Schema::dropIfExists('saca_reproduccion');
     }
 };
