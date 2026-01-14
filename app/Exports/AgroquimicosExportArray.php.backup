@@ -1,0 +1,460 @@
+<?php
+
+namespace App\Exports;
+
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+
+class AgroquimicosExportArray implements FromArray, WithStyles, WithEvents
+{
+    protected $datos;
+    protected $estadisticas;
+    protected $filtros;
+
+    public function __construct($datos, $estadisticas = [], $filtros = [])
+    {
+        $this->datos = $datos;
+        $this->estadisticas = $estadisticas;
+        $this->filtros = $filtros;
+    }
+
+    public function array(): array
+    {
+        $filas = [];
+
+        // ============================================================
+        // SECCIÓN 1: ENCABEZADO AMARILLO (Filas 1-3)
+        // ============================================================
+        // Fila 1: Logo y "SIEA AGRARIO - PERÚ"
+        $filas[] = ['SIEA AGRARIO - PERÚ', '', '', '', '', '', '', '', '', '', '', '', '', 'F-6'];
+
+        // Fila 2: Subtítulo del formulario
+        $filas[] = ['FORMULARIO DE CAPTURA DE PRECIOS DE INSUMOS', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+        // Fila 3: Título
+        $filas[] = ['AGROQUÍMICOS', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+        // ============================================================
+        // SECCIÓN 2: INFORMACIÓN DEL REPORTE (Fila 4)
+        // ============================================================
+        $periodo = '';
+        if (!empty($this->filtros['mes'])) {
+            $meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            $mesNombre = $this->filtros['mes_nombre'] ?? $meses[(int)$this->filtros['mes']];
+            $periodo = $mesNombre . ' ' . ($this->filtros['anio'] ?? date('Y'));
+        } elseif (!empty($this->filtros['anio'])) {
+            $periodo = 'Año ' . $this->filtros['anio'];
+        } else {
+            $periodo = 'General';
+        }
+
+        $region = $this->filtros['region'] ?? 'Nacional';
+        $provincia = $this->filtros['provincia'] ?? '';
+        $distrito = $this->filtros['distrito'] ?? '';
+
+        $ubicacion = $region;
+        if ($provincia) {
+            $ubicacion .= ' - ' . $provincia;
+        }
+        if ($distrito) {
+            $ubicacion .= ' - ' . $distrito;
+        }
+
+        $filas[] = [
+            'Periodo: ' . $periodo,
+            '',
+            '',
+            'Ubicación: ' . $ubicacion,
+            '',
+            '',
+            '',
+            '',
+            'Fecha: ' . now()->format('d/m/Y'),
+            '',
+            '',
+            '',
+            ''
+        ];
+
+        // ============================================================
+        // SECCIÓN 3: LÍNEA EN BLANCO (Fila 5)
+        // ============================================================
+        $filas[] = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+        // ============================================================
+        // SECCIÓN 4: DATOS ESTADÍSTICOS (Filas 6-11)
+        // ============================================================
+        // Mapeo de categorías
+        $categoriasMap = [
+            'fungicida' => 'Fungicidas',
+            'Fungicidas' => 'Fungicidas',
+            'acaricida' => 'Insecticidas',
+            'Insecticidas' => 'Insecticidas',
+            'Herbicidas' => 'Herbicidas',
+            'adherente' => 'Otros',
+            'Otros' => 'Otros'
+        ];
+
+        // Agrupar datos por categoría
+        $categorias = [
+            'Insecticidas' => [],
+            'Fungicidas' => [],
+            'Herbicidas' => [],
+            'Otros' => []
+        ];
+
+        foreach ($this->datos as $item) {
+            $categoriaOriginal = $item['categoria'] ?? 'Otros';
+            $categoria = $categoriasMap[$categoriaOriginal] ?? 'Otros';
+
+            if (isset($categorias[$categoria])) {
+                $categorias[$categoria][] = $item;
+            }
+        }
+
+        // Convertir a array si es necesario
+        $datosArray = is_array($this->datos) ? $this->datos : $this->datos->toArray();
+
+        $totalProductos = count($datosArray);
+        $promedioGeneral = $totalProductos > 0
+            ? array_sum(array_column($datosArray, 'precio_promedio')) / $totalProductos
+            : 0;
+
+        $filas[] = ['TOTAL DE PRODUCTOS', number_format($totalProductos, 0), '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = ['PRECIO PROMEDIO GENERAL', 'S/. ' . number_format($promedioGeneral, 2), '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = ['INSECTICIDAS', count($categorias['Insecticidas']), '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = ['FUNGICIDAS', count($categorias['Fungicidas']), '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = ['HERBICIDAS', count($categorias['Herbicidas']), '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = ['OTROS', count($categorias['Otros']), '', '', '', '', '', '', '', '', '', '', ''];
+
+        // ============================================================
+        // SECCIÓN 5: ENCABEZADOS DE TABLA (Fila 12)
+        // ============================================================
+        $filas[] = [
+            'CATEGORÍA',
+            'PRODUCTOS',
+            'ENVASE',
+            'PRECIO PROMEDIO',
+            'PRECIO MÁXIMO',
+            'PRECIO MÍNIMO',
+            'P. MAX FUERA',
+            'P. MIN FUERA',
+            'P. MAX DENTRO',
+            'P. MIN DENTRO',
+            'TOTAL REGISTROS',
+            'VIGENCIA',
+            ''
+        ];
+
+        // ============================================================
+        // SECCIÓN 6: DATOS DE PRODUCTOS POR CATEGORÍA
+        // ============================================================
+        $categoriaOrden = ['Insecticidas', 'Fungicidas', 'Herbicidas', 'Otros'];
+
+        foreach ($categoriaOrden as $nombreCategoria) {
+            if (empty($categorias[$nombreCategoria])) {
+                continue;
+            }
+
+            // Agrupar por producto para consolidar datos
+            $productosAgrupados = [];
+            foreach ($categorias[$nombreCategoria] as $item) {
+                $producto = $item['nombre'];
+                $envase = $item['envase'] ?? '';
+                $clave = $producto . '|' . $envase;
+
+                if (!isset($productosAgrupados[$clave])) {
+                    $productosAgrupados[$clave] = [
+                        'producto' => $producto,
+                        'envase' => $envase,
+                        'precio_promedio' => $item['precio_promedio'] ?? 0,
+                        'precio_maximo' => $item['precio_maximo'] ?? 0,
+                        'precio_minimo' => $item['precio_minimo'] ?? 0,
+                        'total' => $item['num_registros'] ?? 1
+                    ];
+                }
+            }
+
+            // Primera fila: CATEGORÍA
+            $filas[] = [$nombreCategoria, '', '', '', '', '', '', '', '', '', '', '', ''];
+
+            // Filas de productos
+            foreach ($productosAgrupados as $grupo) {
+                $filas[] = [
+                    '',
+                    $grupo['producto'],
+                    $grupo['envase'],
+                    'S/. ' . number_format($grupo['precio_promedio'], 2),
+                    'S/. ' . number_format($grupo['precio_maximo'], 2),
+                    'S/. ' . number_format($grupo['precio_minimo'], 2),
+                    '-',  // P. MAX FUERA (no disponible en controller)
+                    '-',  // P. MIN FUERA (no disponible en controller)
+                    '-',  // P. MAX DENTRO (no disponible en controller)
+                    '-',  // P. MIN DENTRO (no disponible en controller)
+                    $grupo['total'],
+                    'Vigente',
+                    ''
+                ];
+            }
+        }
+
+        // ============================================================
+        // SECCIÓN 7: PIE DE PÁGINA
+        // ============================================================
+        $filas[] = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+        $filas[] = [
+            'Reporte generado por SIEA - ' . now()->format('d/m/Y H:i'),
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            ''
+        ];
+
+        return $filas;
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            // Encabezado amarillo (filas 1-3)
+            1 => [
+                'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '8B4513']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFD700']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ],
+            2 => [
+                'font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => '8B4513']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFD700']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ],
+            3 => [
+                'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '8B4513']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFD700']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ],
+
+            // Fila de información (fila 4)
+            4 => [
+                'font' => ['bold' => true, 'size' => 10],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E8F4F8']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+            ],
+
+            // Estadísticas (filas 6-11)
+            6 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+            7 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+            8 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+            9 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+            10 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+            11 => ['font' => ['bold' => true], 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F0F0']]],
+
+            // Encabezados de tabla (fila 12)
+            12 => [
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ],
+        ];
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function(AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+
+                // ============================================================
+                // CONFIGURACIÓN DE DIMENSIONES
+                // ============================================================
+                // Anchos de columnas (con ENVASE agregado)
+                $sheet->getColumnDimension('A')->setWidth(20);  // CATEGORÍA
+                $sheet->getColumnDimension('B')->setWidth(35);  // PRODUCTOS
+                $sheet->getColumnDimension('C')->setWidth(15);  // ENVASE
+                $sheet->getColumnDimension('D')->setWidth(18);  // PRECIO PROMEDIO
+                $sheet->getColumnDimension('E')->setWidth(16);  // PRECIO MÁXIMO
+                $sheet->getColumnDimension('F')->setWidth(16);  // PRECIO MÍNIMO
+                $sheet->getColumnDimension('G')->setWidth(16);  // P. MAX FUERA
+                $sheet->getColumnDimension('H')->setWidth(16);  // P. MIN FUERA
+                $sheet->getColumnDimension('I')->setWidth(16);  // P. MAX DENTRO
+                $sheet->getColumnDimension('J')->setWidth(16);  // P. MIN DENTRO
+                $sheet->getColumnDimension('K')->setWidth(15);  // TOTAL REGISTROS
+                $sheet->getColumnDimension('L')->setWidth(12);  // VIGENCIA
+                $sheet->getColumnDimension('M')->setWidth(5);   // Columna extra (badge F-6)
+
+                // Altura de filas del encabezado
+                $sheet->getRowDimension(1)->setRowHeight(25);
+                $sheet->getRowDimension(2)->setRowHeight(20);
+                $sheet->getRowDimension(3)->setRowHeight(30);
+
+                // ============================================================
+                // MERGE DE CELDAS
+                // ============================================================
+                // Fila 1: Logo y título
+                $sheet->mergeCells('A1:L1');
+
+                // Fila 2: Subtítulo del formulario
+                $sheet->mergeCells('A2:L2');
+
+                // Fila 3: Título "AGROQUÍMICOS" y badge "F-6"
+                $sheet->mergeCells('A3:L3');
+
+                // Fila 4: Información del reporte
+                $sheet->mergeCells('A4:C4');  // Periodo
+                $sheet->mergeCells('D4:H4');  // Ubicación
+                $sheet->mergeCells('I4:M4');  // Fecha
+
+                // ============================================================
+                // ESTILO DEL BADGE F-6 (celda M3)
+                // ============================================================
+                $sheet->getStyle('M3')->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 24,
+                        'color' => ['rgb' => 'FFFFFF']
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '4472C4']
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER
+                    ],
+                    'borders' => [
+                        'outline' => [
+                            'borderStyle' => Border::BORDER_THICK,
+                            'color' => ['rgb' => '2F5597']
+                        ]
+                    ]
+                ]);
+
+                // ============================================================
+                // BORDES GENERALES
+                // ============================================================
+                $highestRow = $sheet->getHighestRow();
+
+                // Bordes del encabezado amarillo
+                $sheet->getStyle('A1:M3')->applyFromArray([
+                    'borders' => [
+                        'outline' => [
+                            'borderStyle' => Border::BORDER_THICK,
+                            'color' => ['rgb' => '000000']
+                        ]
+                    ]
+                ]);
+
+                // Bordes de toda la tabla de datos (desde fila 12)
+                if ($highestRow >= 12) {
+                    $sheet->getStyle('A12:M' . $highestRow)->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_THIN,
+                                'color' => ['rgb' => 'CCCCCC']
+                            ]
+                        ]
+                    ]);
+                }
+
+                // ============================================================
+                // ESTILO ZEBRA (filas alternas) DESDE FILA 13
+                // ============================================================
+                for ($row = 13; $row <= $highestRow - 2; $row++) {
+                    $valor = $sheet->getCell('A' . $row)->getValue();
+
+                    // Si es una fila de categoría (tiene valor en columna A)
+                    if (!empty($valor)) {
+                        $sheet->getStyle('A' . $row . ':M' . $row)->applyFromArray([
+                            'font' => [
+                                'bold' => true,
+                                'size' => 12,
+                                'color' => ['rgb' => 'FFFFFF']
+                            ],
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => '70AD47']
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                                'vertical' => Alignment::VERTICAL_CENTER
+                            ]
+                        ]);
+                    } else {
+                        // Filas de productos (zebra)
+                        if ($row % 2 == 0) {
+                            $sheet->getStyle('A' . $row . ':M' . $row)->applyFromArray([
+                                'fill' => [
+                                    'fillType' => Fill::FILL_SOLID,
+                                    'startColor' => ['rgb' => 'F2F2F2']
+                                ]
+                            ]);
+                        }
+                    }
+                }
+
+                // ============================================================
+                // ALINEACIÓN DE CONTENIDO
+                // ============================================================
+                // Precios alineados a la derecha (columnas D-J)
+                if ($highestRow >= 13) {
+                    $sheet->getStyle('D13:J' . $highestRow)->applyFromArray([
+                        'alignment' => [
+                            'horizontal' => Alignment::HORIZONTAL_RIGHT,
+                            'vertical' => Alignment::VERTICAL_CENTER
+                        ]
+                    ]);
+
+                    // Total registros centrado (columna K)
+                    $sheet->getStyle('K13:K' . $highestRow)->applyFromArray([
+                        'alignment' => [
+                            'horizontal' => Alignment::HORIZONTAL_CENTER,
+                            'vertical' => Alignment::VERTICAL_CENTER
+                        ]
+                    ]);
+
+                    // Vigencia centrada (columna L)
+                    $sheet->getStyle('L13:L' . $highestRow)->applyFromArray([
+                        'alignment' => [
+                            'horizontal' => Alignment::HORIZONTAL_CENTER,
+                            'vertical' => Alignment::VERTICAL_CENTER
+                        ]
+                    ]);
+                }
+
+                // ============================================================
+                // ESTILO PIE DE PÁGINA
+                // ============================================================
+                $sheet->getStyle('A' . ($highestRow - 1) . ':M' . $highestRow)->applyFromArray([
+                    'font' => [
+                        'italic' => true,
+                        'size' => 9,
+                        'color' => ['rgb' => '666666']
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F8F8F8']
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER
+                    ]
+                ]);
+
+                $sheet->mergeCells('A' . ($highestRow - 1) . ':M' . $highestRow);
+            }
+        ];
+    }
+}

@@ -152,27 +152,85 @@ Route::prefix('v1')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->gr
 Route::prefix('precios')->middleware(['auth.jwt', 'role:Administrador,Técnico'])->group(function () {
 
     // Catálogos base
-    Route::apiResource('ubicaciones', PreGeoUbicacionController::class);
-    Route::apiResource('categorias', PreCategoriaController::class);
-    Route::apiResource('productos', PreProductoController::class);
-    Route::apiResource('mercados', PreMercadoController::class);
-    Route::apiResource('encuestadores', PreEncuestadorController::class);
+    Route::apiResource('ubicaciones', PreGeoUbicacionController::class)->names('precios.ubicaciones');
+    Route::apiResource('categorias', PreCategoriaController::class)->names('precios.categorias');
+    Route::apiResource('productos', PreProductoController::class)->names('precios.productos');
+    Route::apiResource('mercados', PreMercadoController::class)->names('precios.mercados');
+    Route::apiResource('encuestadores', PreEncuestadorController::class)->names('precios.encuestadores');
 
     // Muestras - Registro de precios
-    Route::apiResource('muestras', PreMuestraController::class);
-    Route::post('muestras/{id}/validar', [PreMuestraController::class, 'validar']);
-    Route::post('muestras/validar-lote', [PreMuestraController::class, 'validarLote']);
+    Route::apiResource('muestras', PreMuestraController::class)->names('precios.muestras');
+    Route::post('muestras/{id}/validar', [PreMuestraController::class, 'validar'])->name('precios.muestras.validar');
+    Route::post('muestras/validar-lote', [PreMuestraController::class, 'validarLote'])->name('precios.muestras.validar-lote');
 
     // Reportes
     Route::get('reportes/comparativo', [PreReporteController::class, 'comparativo']);
     Route::post('reportes/generar-comparativo', [PreReporteController::class, 'generarComparativo']);
     Route::get('reportes/resumen-muestras', [PreReporteController::class, 'resumenMuestras']);
     Route::get('reportes/historico/{producto_id}', [PreReporteController::class, 'historico']);
-    
+
     // Reportes de Productividad de Encuestadores
     Route::get('reportes/encuestadores/productividad', [PreReporteController::class, 'productividadEncuestadores']);
     Route::get('reportes/encuestadores/por-dia', [PreReporteController::class, 'encuestadoresPorDia']);
     Route::get('reportes/encuestadores/por-mes', [PreReporteController::class, 'encuestadoresPorMes']);
 });
 
+// AGRI - Sistema SIEA de Insumos Agrícolas
+Route::prefix('agri')->middleware(['auth.jwt'])->group(function () {
+
+    // CRUD Gestión Operacional
+
+    // Rutas personalizadas de encuestas (ANTES de apiResource)
+    Route::get('encuestas-estadisticas', [App\Http\Controllers\Api\AgriEncuestaController::class, 'estadisticas']);
+    Route::get('encuestas-estadisticas/exportar', [App\Http\Controllers\Api\AgriEncuestaController::class, 'exportarEstadisticas']);
+    Route::get('encuestas/{id}/formulario-completo', [App\Http\Controllers\Api\AgriEncuestaController::class, 'obtenerFormulario']);
+    Route::post('encuestas/{id}/validar', [App\Http\Controllers\Api\AgriEncuestaController::class, 'validar']);
+    Route::post('encuestas/{id}/rechazar', [App\Http\Controllers\Api\AgriEncuestaController::class, 'rechazar']);
+
+    // CRUD estándar de encuestas
+    Route::apiResource('encuestas', App\Http\Controllers\Api\AgriEncuestaController::class)->names('agri.encuestas');
+
+    Route::apiResource('encuestadores', App\Http\Controllers\Api\AgriEncuestadorController::class)->names('agri.encuestadores');
+    Route::apiResource('supervisores', App\Http\Controllers\Api\AgriSupervisorController::class)->names('agri.supervisores');
+    Route::apiResource('asignaciones', App\Http\Controllers\Api\AgriAsignacionController::class)->names('agri.asignaciones');
+
+    // CRUD Catálogos
+    Route::apiResource('maquinaria', App\Http\Controllers\Api\AgriMaquinariaController::class)->names('agri.maquinaria');
+    Route::apiResource('fertilizantes', App\Http\Controllers\Api\AgriFertilizanteController::class)->names('agri.fertilizantes');
+    Route::apiResource('agroquimicos', App\Http\Controllers\Api\AgriAgroquimicoController::class)->names('agri.agroquimicos');
+
+    // Reportes SIEA
+    Route::prefix('reportes')->group(function () {
+
+        // Reportes de precios por formulario
+        Route::get('precios-maquinaria', [App\Http\Controllers\Api\AgriReporteController::class, 'preciosMaquinaria']);
+        Route::get('precios-fertilizantes', [App\Http\Controllers\Api\AgriReporteController::class, 'preciosFertilizantes']);
+        Route::get('precios-agroquimicos', [App\Http\Controllers\Api\AgriReporteController::class, 'preciosAgroquimicos']);
+        Route::get('precios-transporte', [App\Http\Controllers\Api\AgriReporteController::class, 'preciosTransporte']);
+
+        // Reportes comparativos
+        Route::get('tendencias', [App\Http\Controllers\Api\AgriReporteController::class, 'tendencias']);
+
+        // Reportes de productividad
+        Route::get('productividad-encuestadores', [App\Http\Controllers\Api\AgriReporteController::class, 'productividadEncuestadores']);
+        Route::get('cumplimiento-metas', [App\Http\Controllers\Api\AgriReporteController::class, 'cumplimientoMetas']);
+
+        // Dashboards
+        Route::get('dashboard-general', [App\Http\Controllers\Api\AgriReporteController::class, 'dashboardGeneral']);
+
+        // Exportaciones Excel y PDF
+        Route::get('analisis-precios-export', [App\Http\Controllers\Api\AgriReporteController::class, 'analisisPreciosExport']);
+        Route::get('analisis-precios-pdf', [App\Http\Controllers\Api\AgriReporteController::class, 'analisisPreciosPdf']);
+        Route::get('transporte-export', [App\Http\Controllers\Api\AgriReporteController::class, 'transporteExport']);
+        Route::get('transporte-pdf', [App\Http\Controllers\Api\AgriReporteController::class, 'transportePdf']);
+        Route::get('maquinaria-export', [App\Http\Controllers\Api\AgriReporteController::class, 'maquinariaExport']);
+        Route::get('maquinaria-pdf', [App\Http\Controllers\Api\AgriReporteController::class, 'maquinariaPdf']);
+        Route::get('fertilizantes-export', [App\Http\Controllers\Api\AgriReporteController::class, 'fertilizantesExport']);
+        Route::get('fertilizantes-pdf', [App\Http\Controllers\Api\AgriReporteController::class, 'fertilizantesPdf']);
+        Route::get('agroquimicos-export', [App\Http\Controllers\Api\AgriReporteController::class, 'agroquimicosExport']);
+        Route::get('agroquimicos-pdf', [App\Http\Controllers\Api\AgriReporteController::class, 'agroquimicosPdf']);
+        Route::get('transporte-export-nuevo', [App\Http\Controllers\Api\AgriReporteController::class, 'transporteExportNuevo']);
+        Route::get('transporte-pdf-nuevo', [App\Http\Controllers\Api\AgriReporteController::class, 'transportePdfNuevo']);
+    });
+});
 
